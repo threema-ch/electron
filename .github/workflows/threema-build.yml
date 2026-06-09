@@ -1,0 +1,798 @@
+name: Threema Electron Build
+
+# Builds Electron with Threema's WebRTC patches for all platforms.
+#
+# RUNNER REQUIREMENTS:
+#   This workflow requires GitHub Team/Enterprise large runners, or self-hosted
+#   runners with sufficient disk space (150+ GB) and CPU (16+ cores).
+#   Standard GitHub-hosted runners (14 GB disk) are NOT sufficient.
+#
+#   Required runner labels used below:
+#     Linux:   ubuntu-22.04-16core  (~160 GB disk)
+#     macOS:   macos-15-xlarge      (~30 GB disk after cleanup, M-series)
+#     Windows: windows-2022-16core  (~160 GB disk)
+#
+#   To use self-hosted runners, replace the `runs-on` label in each job.
+#
+# SECRETS:
+#   CHROMIUM_GIT_COOKIE         (optional) - Raises Chromium git server rate
+#   CHROMIUM_GIT_COOKIE_WINDOWS_STRING  limits. Builds work without it but
+#                               may hit throttling during gclient sync.
+
+on:
+  workflow_dispatch:
+    inputs:
+      build-linux-x64:
+        type: boolean
+        description: 'Build Linux x64'
+        default: false
+        required: false
+      build-linux-arm64:
+        type: boolean
+        description: 'Build Linux arm64 (cross-compiled on x64 runner)'
+        default: false
+        required: false
+      build-macos-arm64:
+        type: boolean
+        description: 'Build macOS arm64 (cross-compiled on Intel runner)'
+        default: false
+        required: false
+      build-macos-x64:
+        type: boolean
+        description: 'Build macOS x64 (native on Intel runner)'
+        default: false
+        required: false
+      build-windows:
+        type: boolean
+        description: 'Build Windows x64'
+        default: false
+        required: false
+      gn-build-type:
+        type: choice
+        description: 'GN build type: testing (faster, larger binary) or release (optimized)'
+        options:
+          - testing
+          - release
+        default: testing
+        required: false
+      generate-symbols:
+        type: boolean
+        description: 'Generate debug symbols (significantly increases build time and artifact size)'
+        default: false
+        required: false
+      version:
+        type: string
+        description: 'Release version (e.g. 40.10.0). Overrides package.json. Used for the release tag v{version}-threema and artifact names.'
+        default: ''
+        required: false
+
+defaults:
+  run:
+    shell: bash
+
+# Shared env for all jobs
+env:
+  # Keep in sync with .github/actions/build-image-sha/action.yml
+  BUILD_IMAGE_SHA: daad061f4b99a0ae1c841be4aa09188280a9c8a4
+  ELECTRON_OUT_DIR: Default
+
+# ──────────────────────────────────────────────────────────────────────────────
+# LINUX x64
+# ──────────────────────────────────────────────────────────────────────────────
+jobs:
+  linux-x64:
+    name: 'Linux / x64'
+    if: ${{ github.repository == 'threema-ch/electron' && inputs.build-linux-x64 }}
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 1440
+    container:
+      image: ghcr.io/electron/build:daad061f4b99a0ae1c841be4aa09188280a9c8a4
+      options: --user root
+    env:
+      TARGET_ARCH: x64
+      TARGET_PLATFORM: linux
+      GCLIENT_EXTRA_ARGS: '--custom-var=checkout_arm=True --custom-var=checkout_arm64=True'
+      GN_BUILD_TYPE: ${{ inputs.gn-build-type || 'testing' }}
+
+      CHROMIUM_GIT_COOKIE: ${{ secrets.CHROMIUM_GIT_COOKIE }}
+
+    steps:
+    - name: Checkout Electron
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      with:
+        path: src/electron
+        fetch-depth: 0
+
+    - name: Clean build output
+      run: |
+        rm -rf src/out/Default 2>/dev/null || true
+
+    - name: Set Chromium Git Cookie
+      uses: ./src/electron/.github/actions/set-chromium-cookie
+
+    - name: Install Build Tools
+      uses: ./src/electron/.github/actions/install-build-tools
+
+    - name: Sync Chromium source and apply patches
+      run: |
+        e d gclient config \
+          --name "src/electron" \
+          --unmanaged \
+          $GCLIENT_EXTRA_ARGS \
+          "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+        ELECTRON_DEPOT_TOOLS_WIN_TOOLCHAIN=0 \
+        DEPOT_TOOLS_WIN_TOOLCHAIN=0 \
+        ELECTRON_USE_THREE_WAY_MERGE_FOR_PATCHES=1 \
+          e d gclient sync --with_branch_heads --with_tags
+
+    - name: Init build configuration
+      run: |
+        e init -f --root=$(pwd) --out=Default \
+          "$GN_BUILD_TYPE" --import "$GN_BUILD_TYPE" \
+          --target-cpu "$TARGET_ARCH" \
+          --remote-build none
+    - name: Run Electron-only hooks
+      run: |
+        e d gclient runhooks --spec="solutions=[{'name':'src/electron','url':None,'deps_file':'DEPS','custom_vars':{'process_deps':False},'managed':False}]"
+
+    - name: Add CHROMIUM_BUILDTOOLS_PATH
+      run: echo "CHROMIUM_BUILDTOOLS_PATH=$(pwd)/src/buildtools" >> $GITHUB_ENV
+
+    - name: Install yarn dependencies
+      uses: ./src/electron/.github/actions/install-dependencies
+
+    - name: Build Electron
+      run: |
+        cd src/electron && git pack-refs && cd ../..
+        if [ "$GN_BUILD_TYPE" = "release" ]; then
+          NINJA_SUMMARIZE_BUILD=1 e build --target electron:release_build
+        else
+          NINJA_SUMMARIZE_BUILD=1 e build --target electron:testing_build
+        fi
+
+    - name: Build Chromedriver
+      run: |
+        cd src
+        e build --target electron:electron_chromedriver_zip
+
+    - name: Build node headers
+      run: |
+        cd src
+        e build --target electron:node_headers
+        cp out/Default/gen/node_headers.tar.gz out/Default/node_headers.tar.gz
+
+    - name: Upload dist artifacts
+      if: always() && !cancelled()
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: electron-linux-x64
+        path: |
+          src/out/Default/dist.zip
+          src/out/Default/chromedriver.zip
+          src/out/Default/node_headers.tar.gz
+
+# ──────────────────────────────────────────────────────────────────────────────
+# LINUX arm64  (cross-compiled on x64 runner)
+# ──────────────────────────────────────────────────────────────────────────────
+  linux-arm64:
+    name: 'Linux / arm64'
+    if: ${{ github.repository == 'threema-ch/electron' && inputs.build-linux-arm64 }}
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 1440
+    container:
+      image: ghcr.io/electron/build:daad061f4b99a0ae1c841be4aa09188280a9c8a4
+      options: --user root
+    env:
+      TARGET_ARCH: arm64
+      TARGET_PLATFORM: linux
+      # checkout_arm64=True pulls the arm64 sysroot needed for cross-compilation
+      GCLIENT_EXTRA_ARGS: '--custom-var=checkout_arm=True --custom-var=checkout_arm64=True'
+      GN_BUILD_TYPE: ${{ inputs.gn-build-type || 'testing' }}
+
+      CHROMIUM_GIT_COOKIE: ${{ secrets.CHROMIUM_GIT_COOKIE }}
+
+    steps:
+    - name: Checkout Electron
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      with:
+        path: src/electron
+        fetch-depth: 0
+
+    - name: Clean build output
+      run: |
+        rm -rf src/out/Default 2>/dev/null || true
+
+    - name: Set Chromium Git Cookie
+      uses: ./src/electron/.github/actions/set-chromium-cookie
+
+    - name: Install Build Tools
+      uses: ./src/electron/.github/actions/install-build-tools
+
+    - name: Sync Chromium source and apply patches
+      run: |
+        e d gclient config \
+          --name "src/electron" \
+          --unmanaged \
+          $GCLIENT_EXTRA_ARGS \
+          "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+        ELECTRON_DEPOT_TOOLS_WIN_TOOLCHAIN=0 \
+        DEPOT_TOOLS_WIN_TOOLCHAIN=0 \
+        ELECTRON_USE_THREE_WAY_MERGE_FOR_PATCHES=1 \
+          e d gclient sync --with_branch_heads --with_tags
+
+    - name: Init build configuration
+      run: |
+        e init -f --root=$(pwd) --out=Default \
+          "$GN_BUILD_TYPE" --import "$GN_BUILD_TYPE" \
+          --target-cpu "$TARGET_ARCH" \
+          --remote-build none
+    - name: Run Electron-only hooks
+      run: |
+        e d gclient runhooks --spec="solutions=[{'name':'src/electron','url':None,'deps_file':'DEPS','custom_vars':{'process_deps':False},'managed':False}]"
+
+    - name: Add CHROMIUM_BUILDTOOLS_PATH
+      run: echo "CHROMIUM_BUILDTOOLS_PATH=$(pwd)/src/buildtools" >> $GITHUB_ENV
+
+    - name: Install yarn dependencies
+      uses: ./src/electron/.github/actions/install-dependencies
+
+    - name: Build Electron
+      run: |
+        cd src/electron && git pack-refs && cd ../..
+        if [ "$GN_BUILD_TYPE" = "release" ]; then
+          NINJA_SUMMARIZE_BUILD=1 e build --target electron:release_build
+        else
+          NINJA_SUMMARIZE_BUILD=1 e build --target electron:testing_build
+        fi
+
+    - name: Build Chromedriver
+      run: |
+        cd src
+        e build --target electron:electron_chromedriver_zip
+
+    - name: Upload dist artifacts
+      if: always() && !cancelled()
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: electron-linux-arm64
+        path: |
+          src/out/Default/dist.zip
+          src/out/Default/chromedriver.zip
+
+# ──────────────────────────────────────────────────────────────────────────────
+# macOS arm64  (native on M-series runner)
+# ──────────────────────────────────────────────────────────────────────────────
+  macos-arm64:
+    name: 'macOS / arm64'
+    # workflow_dispatch only — no macOS runner on push until runner is available
+    if: ${{ github.repository == 'threema-ch/electron' && github.event_name == 'workflow_dispatch' && inputs.build-macos-arm64 }}
+    runs-on: [self-hosted, macOS, X64]
+    timeout-minutes: 1440
+    env:
+      TARGET_ARCH: arm64
+      TARGET_PLATFORM: macos
+      GCLIENT_EXTRA_ARGS: '--custom-var=checkout_mac=True --custom-var=host_os=mac'
+      GN_BUILD_TYPE: ${{ inputs.gn-build-type || 'testing' }}
+      ELECTRON_DEPOT_TOOLS_DISABLE_LOG: "1"
+      CHROMIUM_GIT_COOKIE: ${{ secrets.CHROMIUM_GIT_COOKIE }}
+      TOOLCHAINS: Metal
+
+    steps:
+    - name: Checkout Electron
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      with:
+        path: src/electron
+        fetch-depth: 0
+
+    - name: Clean build output
+      run: |
+        # ──────────────────────────────────────────────────────────────────────
+        # TEMPORARY: Remove this step once arm64 and x64 have separate
+        # dedicated runners.
+        #
+        # When the same persistent runner is reused for both x64 and arm64
+        # builds, the previous build's out/Default (compiled for a different
+        # arch) stays on disk. Switching arches changes args.gn, which makes
+        # ninja trigger `gn --regeneration gen .`. On macOS with Xcode 26 that
+        # command fails fatally (MacOSX26.1.sdk xcode_links dependency errors
+        # are treated as fatal in --regeneration mode).
+        #
+        # Removing out/Default here ensures e init's gn gen runs on a clean
+        # slate with no stale arch artifacts.
+        # ──────────────────────────────────────────────────────────────────────
+        rm -rf src/out/Default 2>/dev/null || true
+
+    - name: Setup Node.js
+      uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+      with:
+        node-version: 22.21.x
+
+
+    - name: Set GN_EXTRA_ARGS for macOS arm64 cross-compilation
+      run: |
+        # Intel host → arm64 target. No v8_snapshot_toolchain override needed
+        # because the snapshot generator runs natively on the x64 host.
+        echo "GN_EXTRA_ARGS=target_cpu=\"arm64\"" >> $GITHUB_ENV
+
+    - name: Set Chromium Git Cookie
+      uses: ./src/electron/.github/actions/set-chromium-cookie
+
+    - name: Install Build Tools
+      uses: ./src/electron/.github/actions/install-build-tools
+
+    - name: Sync Chromium source and apply patches
+      run: |
+        e d gclient config \
+          --name "src/electron" \
+          --unmanaged \
+          $GCLIENT_EXTRA_ARGS \
+          "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+        ELECTRON_DEPOT_TOOLS_WIN_TOOLCHAIN=0 \
+        DEPOT_TOOLS_WIN_TOOLCHAIN=0 \
+        ELECTRON_USE_THREE_WAY_MERGE_FOR_PATCHES=1 \
+          e d gclient sync --with_branch_heads --with_tags
+
+    - name: Fix platform-specific binaries after sync
+      uses: ./src/electron/.github/actions/fix-sync
+      with:
+        target-platform: macos
+      env:
+        TARGET_ARCH: arm64
+
+    - name: Fix dsymutil for cross-compilation
+      run: |
+        # fix-sync picks dsymutil by TARGET_ARCH, but dsymutil must run on the
+        # host. When cross-compiling, re-download the host-arch binary instead.
+        HOST_ARCH=$(uname -m | sed 's/x86_64/x64/')
+        if [ "$HOST_ARCH" != "$TARGET_ARCH" ]; then
+          echo "Cross-compiling ($HOST_ARCH host → $TARGET_ARCH target): fixing dsymutil"
+          python3 src/third_party/depot_tools/download_from_google_storage.py \
+            --no_resume --no_auth --bucket chromium-browser-clang \
+            -s "src/tools/clang/dsymutil/bin/dsymutil.${HOST_ARCH}.sha1" \
+            -o src/tools/clang/dsymutil/bin/dsymutil
+        else
+          echo "Native build ($TARGET_ARCH): dsymutil already correct, skipping"
+        fi
+
+    - name: Init build configuration
+      run: |
+        e init -f --root=$(pwd) --out=Default \
+          "$GN_BUILD_TYPE" --import "$GN_BUILD_TYPE" \
+          --target-cpu "$TARGET_ARCH" \
+          --remote-build none
+    - name: Run Electron-only hooks
+      run: |
+        e d gclient runhooks --spec="solutions=[{'name':'src/electron','url':None,'deps_file':'DEPS','custom_vars':{'process_deps':False},'managed':False}]"
+
+    - name: Add CHROMIUM_BUILDTOOLS_PATH
+      run: echo "CHROMIUM_BUILDTOOLS_PATH=$(pwd)/src/buildtools" >> $GITHUB_ENV
+
+    - name: Install yarn dependencies
+      uses: ./src/electron/.github/actions/install-dependencies
+
+
+    - name: Build Electron
+      run: |
+        cd src/electron && git pack-refs && cd ../..
+        if [ "$GN_BUILD_TYPE" = "release" ]; then
+          NINJA_SUMMARIZE_BUILD=1 e build --target electron:release_build
+        else
+          NINJA_SUMMARIZE_BUILD=1 e build --target electron:testing_build
+        fi
+
+    - name: Build Chromedriver
+      run: |
+        cd src
+        e build --target electron:electron_chromedriver_zip
+
+    - name: Upload dist artifacts
+      if: always() && !cancelled()
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: electron-macos-arm64
+        path: |
+          src/out/Default/dist.zip
+          src/out/Default/chromedriver.zip
+
+# ──────────────────────────────────────────────────────────────────────────────
+# macOS x64  (native on Intel runner — skipped by default)
+# ──────────────────────────────────────────────────────────────────────────────
+  macos-x64:
+    name: 'macOS / x64'
+    # workflow_dispatch only — no macOS runner on push until runner is available
+    if: ${{ github.repository == 'threema-ch/electron' && github.event_name == 'workflow_dispatch' && inputs.build-macos-x64 }}
+    runs-on: [self-hosted, macOS, X64]
+    timeout-minutes: 1440
+    env:
+      TARGET_ARCH: x64
+      TARGET_PLATFORM: macos
+      GCLIENT_EXTRA_ARGS: '--custom-var=checkout_mac=True --custom-var=host_os=mac'
+      GN_BUILD_TYPE: ${{ inputs.gn-build-type || 'testing' }}
+      ELECTRON_DEPOT_TOOLS_DISABLE_LOG: "1"
+      CHROMIUM_GIT_COOKIE: ${{ secrets.CHROMIUM_GIT_COOKIE }}
+      TOOLCHAINS: Metal
+
+    steps:
+    - name: Checkout Electron
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      with:
+        path: src/electron
+        fetch-depth: 0
+
+    - name: Clean build output
+      run: |
+        # ──────────────────────────────────────────────────────────────────────
+        # TEMPORARY: Remove this step once arm64 and x64 have separate
+        # dedicated runners.
+        #
+        # When the same persistent runner is reused for both x64 and arm64
+        # builds, the previous build's out/Default (compiled for a different
+        # arch) stays on disk. Switching arches changes args.gn, which makes
+        # ninja trigger `gn --regeneration gen .`. On macOS with Xcode 26 that
+        # command fails fatally (MacOSX26.1.sdk xcode_links dependency errors
+        # are treated as fatal in --regeneration mode).
+        #
+        # Removing out/Default here ensures e init's gn gen runs on a clean
+        # slate with no stale arch artifacts.
+        # ──────────────────────────────────────────────────────────────────────
+        rm -rf src/out/Default 2>/dev/null || true
+
+    - name: Setup Node.js
+      uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+      with:
+        node-version: 22.21.x
+
+
+    - name: Set GN_EXTRA_ARGS for macOS x64
+      run: |
+        # Intel host → x64 target: native compilation, no cross-compile args needed.
+        # target_cpu defaults to x64 on an Intel host, so this is a no-op guard.
+        echo "GN_EXTRA_ARGS=target_cpu=\"x64\"" >> $GITHUB_ENV
+
+    - name: Set Chromium Git Cookie
+      uses: ./src/electron/.github/actions/set-chromium-cookie
+
+    - name: Install Build Tools
+      uses: ./src/electron/.github/actions/install-build-tools
+
+    - name: Sync Chromium source and apply patches
+      run: |
+        e d gclient config \
+          --name "src/electron" \
+          --unmanaged \
+          $GCLIENT_EXTRA_ARGS \
+          "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+        ELECTRON_DEPOT_TOOLS_WIN_TOOLCHAIN=0 \
+        DEPOT_TOOLS_WIN_TOOLCHAIN=0 \
+        ELECTRON_USE_THREE_WAY_MERGE_FOR_PATCHES=1 \
+          e d gclient sync --with_branch_heads --with_tags
+
+    - name: Fix platform-specific binaries after sync
+      uses: ./src/electron/.github/actions/fix-sync
+      with:
+        target-platform: macos
+      env:
+        TARGET_ARCH: x64
+
+    - name: Init build configuration
+      run: |
+        e init -f --root=$(pwd) --out=Default \
+          "$GN_BUILD_TYPE" --import "$GN_BUILD_TYPE" \
+          --target-cpu "$TARGET_ARCH" \
+          --remote-build none
+    - name: Run Electron-only hooks
+      run: |
+        e d gclient runhooks --spec="solutions=[{'name':'src/electron','url':None,'deps_file':'DEPS','custom_vars':{'process_deps':False},'managed':False}]"
+
+    - name: Add CHROMIUM_BUILDTOOLS_PATH
+      run: echo "CHROMIUM_BUILDTOOLS_PATH=$(pwd)/src/buildtools" >> $GITHUB_ENV
+
+    - name: Install yarn dependencies
+      uses: ./src/electron/.github/actions/install-dependencies
+
+
+    - name: Build Electron
+      run: |
+        cd src/electron && git pack-refs && cd ../..
+        if [ "$GN_BUILD_TYPE" = "release" ]; then
+          NINJA_SUMMARIZE_BUILD=1 e build --target electron:release_build
+        else
+          NINJA_SUMMARIZE_BUILD=1 e build --target electron:testing_build
+        fi
+
+    - name: Build Chromedriver
+      run: |
+        cd src
+        e build --target electron:electron_chromedriver_zip
+
+    - name: Upload dist artifacts
+      if: always() && !cancelled()
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: electron-macos-x64
+        path: |
+          src/out/Default/dist.zip
+          src/out/Default/chromedriver.zip
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Windows x64  (native Windows runner, not cross-compiled from Linux)
+# ──────────────────────────────────────────────────────────────────────────────
+  windows-x64:
+    name: 'Windows / x64'
+    # workflow_dispatch only — no Windows runner on push until runner is available
+    if: ${{ github.repository == 'threema-ch/electron' && github.event_name == 'workflow_dispatch' && inputs.build-windows }}
+    runs-on: [self-hosted, Windows, x64]
+    timeout-minutes: 1440  # 12 hours — first build takes ~10h locally without RBE
+    env:
+      TARGET_ARCH: x64
+      TARGET_PLATFORM: win
+      GCLIENT_EXTRA_ARGS: '--custom-var=checkout_win=True'
+      GN_BUILD_TYPE: ${{ inputs.gn-build-type || 'testing' }}
+
+      CHROMIUM_GIT_COOKIE_WINDOWS_STRING: ${{ secrets.CHROMIUM_GIT_COOKIE_WINDOWS_STRING }}
+      # Suppress "Running ..." prefix from e d so command output isn't polluted
+      ELECTRON_DEPOT_TOOLS_DISABLE_LOG: '1'
+      # Let depot_tools download the pinned MSVC toolchain
+      ELECTRON_DEPOT_TOOLS_WIN_TOOLCHAIN: '1'
+      DEPOT_TOOLS_WIN_TOOLCHAIN: '1'
+
+    steps:
+    - name: Configure git for Windows
+      run: |
+        git config --global core.filemode false
+        git config --global core.autocrlf false
+        git config --global core.longpaths true
+
+    - name: Checkout Electron
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      with:
+        path: src/electron
+        fetch-depth: 0
+
+    - name: Clean build output
+      run: |
+        # Remove stale out/Default so that e init's gn gen runs on a clean
+        # slate. Without this, a changed args.gn would make ninja trigger
+        # gn --regeneration gen ., which may fail on some SDK configurations.
+        rm -rf src/out/Default 2>/dev/null || true
+
+    - name: Set Chromium Git Cookie
+      uses: ./src/electron/.github/actions/set-chromium-cookie
+
+    - name: Install Build Tools
+      uses: ./src/electron/.github/actions/install-build-tools
+
+    - name: Sync Chromium source and apply patches
+      run: |
+        e d gclient config \
+          --name "src/electron" \
+          --unmanaged \
+          $GCLIENT_EXTRA_ARGS \
+          "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+        # Windows builds require target_os to pull Windows-specific DEPS
+        echo "target_os=['win']" >> .gclient
+        ELECTRON_USE_THREE_WAY_MERGE_FOR_PATCHES=1 \
+          e d gclient sync --with_branch_heads --with_tags
+
+    - name: Fix platform-specific binaries after sync
+      uses: ./src/electron/.github/actions/fix-sync
+      with:
+        target-platform: win
+
+    - name: Init build configuration
+      run: |
+        e init -f --root=$(pwd) --out=Default \
+          "$GN_BUILD_TYPE" --import "$GN_BUILD_TYPE" \
+          --target-cpu "$TARGET_ARCH" \
+          --remote-build none
+    - name: Run Electron-only hooks
+      run: |
+        e d gclient runhooks --spec="solutions=[{'name':'src/electron','url':None,'deps_file':'DEPS','custom_vars':{'process_deps':False,'checkout_win':True},'managed':False}]"
+
+    - name: Add CHROMIUM_BUILDTOOLS_PATH
+      run: echo "CHROMIUM_BUILDTOOLS_PATH=$(pwd)/src/buildtools" >> $GITHUB_ENV
+
+    - name: Set GN_EXTRA_ARGS for Windows
+      run: |
+        echo "GN_EXTRA_ARGS=win_abs_link_wrapper=\"//electron/build/win/abs_link_wrapper.py\"" >> $GITHUB_ENV
+
+    - name: Install yarn dependencies
+      uses: ./src/electron/.github/actions/install-dependencies
+
+    - name: Build Electron (Windows)
+      shell: powershell
+      run: |
+        $ErrorActionPreference = 'Continue'
+        cd src\electron
+        git pack-refs
+        cd ..\..
+
+        $env:NINJA_SUMMARIZE_BUILD = 1
+        if ($env:GN_BUILD_TYPE -eq "release") {
+          e.cmd build --target electron:release_build
+        } else {
+          e.cmd build --target electron:testing_build
+        }
+        if ($LASTEXITCODE -ne 0) {
+          Write-Host "e build failed with exit code $LASTEXITCODE"
+          exit $LASTEXITCODE
+        }
+
+    - name: Build Chromedriver (Windows)
+      shell: powershell
+      run: |
+        $ErrorActionPreference = 'Continue'
+        cd src
+        e.cmd build --target electron:electron_chromedriver_zip
+
+    - name: Upload dist artifacts
+      if: always() && !cancelled()
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: electron-windows-x64
+        path: |
+          src/out/Default/dist.zip
+          src/out/Default/chromedriver.zip
+
+# ──────────────────────────────────────────────────────────────────────────────
+# PUBLISH — collects all platform artifacts and creates a GitHub Release
+#
+# Runs only on push to main or workflow_dispatch (not on threema/** branches).
+# Names artifacts to match @electron/get's expected format so Threema Desktop
+# can download them with ELECTRON_MIRROR pointing at this repo's releases.
+#
+# Configure Threema Desktop's electron-builder / @electron/get:
+#   ELECTRON_MIRROR=https://github.com/threema-ch/electron/releases/download/
+#   ELECTRON_CUSTOM_DIR=v{{ version }}-threema
+# ──────────────────────────────────────────────────────────────────────────────
+  publish:
+    name: 'Publish GitHub Release'
+    needs: [linux-x64, linux-arm64, macos-arm64, macos-x64, windows-x64]
+    environment: release
+    # Run if at least one build succeeded and none failed/cancelled.
+    # Skipped jobs (e.g. macos-x64 which is off by default) are fine.
+    if: |
+      always() &&
+      github.repository == 'threema-ch/electron' &&
+      !contains(needs.*.result, 'failure') &&
+      !contains(needs.*.result, 'cancelled') &&
+      contains(needs.*.result, 'success') &&
+      (
+        github.event_name == 'workflow_dispatch' ||
+        (github.event_name == 'push' && github.ref == 'refs/heads/main')
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # required to create/update releases
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      with:
+        sparse-checkout: package.json
+
+    - name: Get Electron version
+      id: version
+      run: |
+        if [ -n "${{ inputs.version }}" ]; then
+          echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
+        else
+          echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Download Linux x64 artifacts
+      if: needs.linux-x64.result == 'success'
+      uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+      with:
+        name: electron-linux-x64
+        path: artifacts/linux-x64
+
+    - name: Download Linux arm64 artifacts
+      if: needs.linux-arm64.result == 'success'
+      uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+      with:
+        name: electron-linux-arm64
+        path: artifacts/linux-arm64
+
+    - name: Download macOS arm64 artifacts
+      if: needs.macos-arm64.result == 'success'
+      uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+      with:
+        name: electron-macos-arm64
+        path: artifacts/macos-arm64
+
+    - name: Download macOS x64 artifacts
+      if: needs.macos-x64.result == 'success'
+      uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+      with:
+        name: electron-macos-x64
+        path: artifacts/macos-x64
+
+    - name: Download Windows x64 artifacts
+      if: needs.windows-x64.result == 'success'
+      uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+      with:
+        name: electron-windows-x64
+        path: artifacts/windows-x64
+
+    - name: Rename artifacts to @electron/get naming convention
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        TAG="v${VERSION}-threema"
+        mkdir -p release-assets
+
+        rename() {
+          local src="$1" dst="$2"
+          [ -f "$src" ] && cp "$src" "release-assets/$dst" || echo "Skipping $dst (not built)"
+        }
+
+        rename artifacts/linux-x64/dist.zip         "electron-v${VERSION}-linux-x64.zip"
+        rename artifacts/linux-x64/chromedriver.zip  "chromedriver-v${VERSION}-linux-x64.zip"
+
+        rename artifacts/linux-arm64/dist.zip        "electron-v${VERSION}-linux-arm64.zip"
+        rename artifacts/linux-arm64/chromedriver.zip "chromedriver-v${VERSION}-linux-arm64.zip"
+
+        rename artifacts/macos-arm64/dist.zip        "electron-v${VERSION}-darwin-arm64.zip"
+        rename artifacts/macos-arm64/chromedriver.zip "chromedriver-v${VERSION}-darwin-arm64.zip"
+
+        rename artifacts/macos-x64/dist.zip          "electron-v${VERSION}-darwin-x64.zip"
+        rename artifacts/macos-x64/chromedriver.zip   "chromedriver-v${VERSION}-darwin-x64.zip"
+
+        rename artifacts/windows-x64/dist.zip        "electron-v${VERSION}-win32-x64.zip"
+        rename artifacts/windows-x64/chromedriver.zip "chromedriver-v${VERSION}-win32-x64.zip"
+
+        # Node headers — built from source in the linux-x64 job (platform-independent).
+        rename artifacts/linux-x64/node_headers.tar.gz \
+          "node-v${VERSION}-headers.tar.gz"
+
+        cd release-assets
+        # Download existing SHASUMS256.txt from the release (if any) and merge.
+        # This preserves entries for platforms not built in this run so that a
+        # partial re-run (e.g. windows-only) doesn't wipe linux/macOS checksums.
+        if gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --pattern 'SHASUMS256.txt' -D /tmp/existing-sha; then
+          echo "Downloaded existing SHASUMS256.txt — merging"
+          existing=/tmp/existing-sha/SHASUMS256.txt
+        else
+          echo "No existing SHASUMS256.txt found — starting fresh"
+          existing=/dev/null
+        fi
+        # Strip stale entries for files we are about to re-upload, keep the rest.
+        built_files=$(ls *.zip *.tar.gz 2>/dev/null || true)
+        if [ -n "$built_files" ]; then
+          grep -vF "$built_files" "$existing" > SHASUMS256.txt || true
+          sha256sum $built_files >> SHASUMS256.txt
+        else
+          cp "$existing" SHASUMS256.txt
+        fi
+        echo "--- Release assets ---"
+        ls -lh
+
+    - name: Create or update GitHub Release
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        TAG="v${VERSION}-threema"
+        TITLE="Electron v${VERSION} (Threema)"
+        NOTES="Electron build with Threema WebRTC patches.
+
+        **Download with \`@electron/get\`:**
+        \`\`\`
+        ELECTRON_MIRROR=https://github.com/threema-ch/electron/releases/download/
+        ELECTRON_CUSTOM_DIR=v{{ version }}-threema
+        \`\`\`"
+
+        if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" &>/dev/null; then
+          echo "Release $TAG exists — uploading/replacing assets"
+          gh release upload "$TAG" release-assets/* \
+            --repo "$GITHUB_REPOSITORY" --clobber
+        else
+          echo "Creating release $TAG"
+          gh release create "$TAG" release-assets/* \
+            --title "$TITLE" \
+            --notes "$NOTES" \
+            --repo "$GITHUB_REPOSITORY"
+        fi
