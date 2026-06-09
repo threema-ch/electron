@@ -1,0 +1,26 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Threema GmbH <security@threema.ch>
+Date: Mon, 4 May 2026 12:00:00 +0000
+Subject: fix: always send video orientation extension to prevent information
+ leak
+
+Unconditionally include the video orientation RTP header extension on every
+packet. Sending it only on key frames or when changed allows observers to
+infer device orientation from packet patterns.
+
+diff --git a/modules/rtp_rtcp/source/rtp_sender_video.cc b/modules/rtp_rtcp/source/rtp_sender_video.cc
+index 945214e552..488aa63a32 100644
+--- a/modules/rtp_rtcp/source/rtp_sender_video.cc
++++ b/modules/rtp_rtcp/source/rtp_sender_video.cc
+@@ -383,10 +383,7 @@ void RTPSenderVideo::AddRtpHeaderExtensions(const RTPVideoHeader& video_header,
+   // value sent.
+   // Set rotation when key frame or when changed (to follow standard).
+   // Or when different from 0 (to follow current receiver implementation).
+-  bool set_video_rotation =
+-      video_header.frame_type == VideoFrameType::kVideoFrameKey ||
+-      video_header.rotation != last_rotation_ ||
+-      video_header.rotation != kVideoRotation_0;
++  bool set_video_rotation = true;
+   if (last_packet && set_video_rotation)
+     packet->SetExtension<VideoOrientation>(video_header.rotation);
+ 

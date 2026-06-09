@@ -1,0 +1,272 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Threema GmbH <security@threema.ch>
+Date: Mon, 4 May 2026 12:00:00 +0000
+Subject: fix: disable unused audio codecs (L16, G.711, G.722)
+
+Disable audio codecs not required by Threema: L16 (raw PCM), PCMU, PCMA
+(G.711), and G.722. Only Opus is retained.
+
+diff --git a/api/audio_codecs/L16/audio_decoder_L16.cc b/api/audio_codecs/L16/audio_decoder_L16.cc
+index e6e1b243b1..129cadad10 100644
+--- a/api/audio_codecs/L16/audio_decoder_L16.cc
++++ b/api/audio_codecs/L16/audio_decoder_L16.cc
+@@ -38,7 +38,7 @@ std::optional<AudioDecoderL16::Config> AudioDecoderL16::SdpToConfig(
+ 
+ void AudioDecoderL16::AppendSupportedDecoders(
+     std::vector<AudioCodecSpec>* specs) {
+-  Pcm16BAppendSupportedCodecSpecs(specs);
++  // disabled
+ }
+ 
+ std::unique_ptr<AudioDecoder> AudioDecoderL16::MakeAudioDecoder(
+@@ -48,8 +48,7 @@ std::unique_ptr<AudioDecoder> AudioDecoderL16::MakeAudioDecoder(
+   if (!config.IsOk()) {
+     return nullptr;
+   }
+-  return std::make_unique<AudioDecoderPcm16B>(config.sample_rate_hz,
+-                                              config.num_channels);
++  return nullptr;  // disabled
+ }
+ 
+ }  // namespace webrtc
+diff --git a/api/audio_codecs/L16/audio_encoder_L16.cc b/api/audio_codecs/L16/audio_encoder_L16.cc
+index 71372bd450..cca4df5728 100644
+--- a/api/audio_codecs/L16/audio_encoder_L16.cc
++++ b/api/audio_codecs/L16/audio_encoder_L16.cc
+@@ -54,7 +54,7 @@ std::optional<AudioEncoderL16::Config> AudioEncoderL16::SdpToConfig(
+ 
+ void AudioEncoderL16::AppendSupportedEncoders(
+     std::vector<AudioCodecSpec>* specs) {
+-  Pcm16BAppendSupportedCodecSpecs(specs);
++  // disabled
+ }
+ 
+ AudioCodecInfo AudioEncoderL16::QueryAudioEncoder(
+@@ -69,16 +69,7 @@ std::unique_ptr<AudioEncoder> AudioEncoderL16::MakeAudioEncoder(
+     int payload_type,
+     std::optional<AudioCodecPairId> /*codec_pair_id*/,
+     const FieldTrialsView* /* field_trials */) {
+-  AudioEncoderPcm16B::Config c;
+-  c.sample_rate_hz = config.sample_rate_hz;
+-  c.num_channels = config.num_channels;
+-  c.frame_size_ms = config.frame_size_ms;
+-  c.payload_type = payload_type;
+-  if (!config.IsOk()) {
+-    RTC_DCHECK_NOTREACHED();
+-    return nullptr;
+-  }
+-  return std::make_unique<AudioEncoderPcm16B>(c);
++  return nullptr;  // disabled
+ }
+ 
+ }  // namespace webrtc
+diff --git a/api/audio_codecs/builtin_audio_decoder_factory.cc b/api/audio_codecs/builtin_audio_decoder_factory.cc
+index c8d5800587..2850a0a5e0 100644
+--- a/api/audio_codecs/builtin_audio_decoder_factory.cc
++++ b/api/audio_codecs/builtin_audio_decoder_factory.cc
+@@ -14,19 +14,14 @@
+ #include <optional>
+ #include <vector>
+ 
+-#include "api/audio_codecs/L16/audio_decoder_L16.h"
+ #include "api/audio_codecs/audio_codec_pair_id.h"
+ #include "api/audio_codecs/audio_decoder.h"
+ #include "api/audio_codecs/audio_decoder_factory.h"
+ #include "api/audio_codecs/audio_decoder_factory_template.h"
+ #include "api/audio_codecs/audio_format.h"
+-#include "api/audio_codecs/g711/audio_decoder_g711.h"
+-#include "api/audio_codecs/g722/audio_decoder_g722.h"
+-#include "api/scoped_refptr.h"
+-#if WEBRTC_USE_BUILTIN_OPUS
+ #include "api/audio_codecs/opus/audio_decoder_multi_channel_opus.h"
+-#include "api/audio_codecs/opus/audio_decoder_opus.h"  // nogncheck
+-#endif
++#include "api/audio_codecs/opus/audio_decoder_opus.h"
++#include "api/scoped_refptr.h"
+ 
+ namespace webrtc {
+ 
+@@ -54,12 +49,7 @@ struct NotAdvertised {
+ 
+ scoped_refptr<AudioDecoderFactory> CreateBuiltinAudioDecoderFactory() {
+   return CreateAudioDecoderFactory<
+-
+-#if WEBRTC_USE_BUILTIN_OPUS
+-      AudioDecoderOpus, NotAdvertised<AudioDecoderMultiChannelOpus>,
+-#endif
+-
+-      AudioDecoderG722, AudioDecoderG711, NotAdvertised<AudioDecoderL16>>();
++      AudioDecoderOpus, NotAdvertised<AudioDecoderMultiChannelOpus>>();
+ }
+ 
+ }  // namespace webrtc
+diff --git a/api/audio_codecs/builtin_audio_encoder_factory.cc b/api/audio_codecs/builtin_audio_encoder_factory.cc
+index 4d63804da9..16532c1c2e 100644
+--- a/api/audio_codecs/builtin_audio_encoder_factory.cc
++++ b/api/audio_codecs/builtin_audio_encoder_factory.cc
+@@ -14,20 +14,15 @@
+ #include <optional>
+ #include <vector>
+ 
+-#include "api/audio_codecs/L16/audio_encoder_L16.h"
+ #include "api/audio_codecs/audio_codec_pair_id.h"
+ #include "api/audio_codecs/audio_encoder.h"
+ #include "api/audio_codecs/audio_encoder_factory.h"
+ #include "api/audio_codecs/audio_encoder_factory_template.h"
+ #include "api/audio_codecs/audio_format.h"
+-#include "api/audio_codecs/g711/audio_encoder_g711.h"
+-#include "api/audio_codecs/g722/audio_encoder_g722.h"
++#include "api/audio_codecs/opus/audio_encoder_multi_channel_opus.h"
++#include "api/audio_codecs/opus/audio_encoder_opus.h"
+ #include "api/field_trials_view.h"
+ #include "api/scoped_refptr.h"
+-#if WEBRTC_USE_BUILTIN_OPUS
+-#include "api/audio_codecs/opus/audio_encoder_multi_channel_opus.h"
+-#include "api/audio_codecs/opus/audio_encoder_opus.h"  // nogncheck
+-#endif
+ 
+ namespace webrtc {
+ 
+@@ -61,12 +56,7 @@ struct NotAdvertised {
+ 
+ scoped_refptr<AudioEncoderFactory> CreateBuiltinAudioEncoderFactory() {
+   return CreateAudioEncoderFactory<
+-
+-#if WEBRTC_USE_BUILTIN_OPUS
+-      AudioEncoderOpus, NotAdvertised<AudioEncoderMultiChannelOpus>,
+-#endif
+-
+-      AudioEncoderG722, AudioEncoderG711, NotAdvertised<AudioEncoderL16>>();
++      AudioEncoderOpus, NotAdvertised<AudioEncoderMultiChannelOpus>>();
+ }
+ 
+ }  // namespace webrtc
+diff --git a/api/audio_codecs/g711/audio_decoder_g711.cc b/api/audio_codecs/g711/audio_decoder_g711.cc
+index 400a27a17a..ab0ed9bd54 100644
+--- a/api/audio_codecs/g711/audio_decoder_g711.cc
++++ b/api/audio_codecs/g711/audio_decoder_g711.cc
+@@ -47,9 +47,7 @@ std::optional<AudioDecoderG711::Config> AudioDecoderG711::SdpToConfig(
+ 
+ void AudioDecoderG711::AppendSupportedDecoders(
+     std::vector<AudioCodecSpec>* specs) {
+-  for (const char* type : {"PCMU", "PCMA"}) {
+-    specs->push_back({{type, 8000, 1}, {8000, 1, 64000}});
+-  }
++  // disabled
+ }
+ 
+ std::unique_ptr<AudioDecoder> AudioDecoderG711::MakeAudioDecoder(
+@@ -60,15 +58,7 @@ std::unique_ptr<AudioDecoder> AudioDecoderG711::MakeAudioDecoder(
+     RTC_DCHECK_NOTREACHED();
+     return nullptr;
+   }
+-  switch (config.type) {
+-    case Config::Type::kPcmU:
+-      return std::make_unique<AudioDecoderPcmU>(config.num_channels);
+-    case Config::Type::kPcmA:
+-      return std::make_unique<AudioDecoderPcmA>(config.num_channels);
+-    default:
+-      RTC_DCHECK_NOTREACHED();
+-      return nullptr;
+-  }
++  return nullptr;  // disabled
+ }
+ 
+ }  // namespace webrtc
+diff --git a/api/audio_codecs/g711/audio_encoder_g711.cc b/api/audio_codecs/g711/audio_encoder_g711.cc
+index af8f1eaf80..b118e49d7b 100644
+--- a/api/audio_codecs/g711/audio_encoder_g711.cc
++++ b/api/audio_codecs/g711/audio_encoder_g711.cc
+@@ -59,9 +59,7 @@ std::optional<AudioEncoderG711::Config> AudioEncoderG711::SdpToConfig(
+ 
+ void AudioEncoderG711::AppendSupportedEncoders(
+     std::vector<AudioCodecSpec>* specs) {
+-  for (const char* type : {"PCMU", "PCMA"}) {
+-    specs->push_back({{type, 8000, 1}, {8000, 1, 64000}});
+-  }
++  // disabled
+ }
+ 
+ AudioCodecInfo AudioEncoderG711::QueryAudioEncoder(const Config& config) {
+@@ -79,26 +77,7 @@ std::unique_ptr<AudioEncoder> AudioEncoderG711::MakeAudioEncoder(
+     RTC_DCHECK_NOTREACHED();
+     return nullptr;
+   }
+-  switch (config.type) {
+-    case Config::Type::kPcmU: {
+-      AudioEncoderPcmU::Config impl_config;
+-      impl_config.num_channels = config.num_channels;
+-      impl_config.frame_size_ms = config.frame_size_ms;
+-      impl_config.payload_type = payload_type;
+-      return std::make_unique<AudioEncoderPcmU>(impl_config);
+-    }
+-    case Config::Type::kPcmA: {
+-      AudioEncoderPcmA::Config impl_config;
+-      impl_config.num_channels = config.num_channels;
+-      impl_config.frame_size_ms = config.frame_size_ms;
+-      impl_config.payload_type = payload_type;
+-      return std::make_unique<AudioEncoderPcmA>(impl_config);
+-    }
+-    default: {
+-      RTC_DCHECK_NOTREACHED();
+-      return nullptr;
+-    }
+-  }
++  return nullptr;  // disabled
+ }
+ 
+ }  // namespace webrtc
+diff --git a/api/audio_codecs/g722/audio_decoder_g722.cc b/api/audio_codecs/g722/audio_decoder_g722.cc
+index f948a21da0..003e5a6a32 100644
+--- a/api/audio_codecs/g722/audio_decoder_g722.cc
++++ b/api/audio_codecs/g722/audio_decoder_g722.cc
+@@ -37,7 +37,7 @@ std::optional<AudioDecoderG722::Config> AudioDecoderG722::SdpToConfig(
+ 
+ void AudioDecoderG722::AppendSupportedDecoders(
+     std::vector<AudioCodecSpec>* specs) {
+-  specs->push_back({{"G722", 8000, 1}, {16000, 1, 64000}});
++  // disabled
+ }
+ 
+ std::unique_ptr<AudioDecoder> AudioDecoderG722::MakeAudioDecoder(
+@@ -48,15 +48,7 @@ std::unique_ptr<AudioDecoder> AudioDecoderG722::MakeAudioDecoder(
+     RTC_DCHECK_NOTREACHED();
+     return nullptr;
+   }
+-  switch (config.num_channels) {
+-    case 1:
+-      return std::make_unique<AudioDecoderG722Impl>();
+-    case 2:
+-      return std::make_unique<AudioDecoderG722StereoImpl>();
+-    default:
+-      RTC_DCHECK_NOTREACHED();
+-      return nullptr;
+-  }
++  return nullptr;  // disabled
+ }
+ 
+ }  // namespace webrtc
+diff --git a/api/audio_codecs/g722/audio_encoder_g722.cc b/api/audio_codecs/g722/audio_encoder_g722.cc
+index d1bbb2e21b..a83c8865db 100644
+--- a/api/audio_codecs/g722/audio_encoder_g722.cc
++++ b/api/audio_codecs/g722/audio_encoder_g722.cc
+@@ -56,9 +56,7 @@ std::optional<AudioEncoderG722Config> AudioEncoderG722::SdpToConfig(
+ 
+ void AudioEncoderG722::AppendSupportedEncoders(
+     std::vector<AudioCodecSpec>* specs) {
+-  const SdpAudioFormat fmt = {"G722", 8000, 1};
+-  const AudioCodecInfo info = QueryAudioEncoder(*SdpToConfig(fmt));
+-  specs->push_back({fmt, info});
++  // disabled
+ }
+ 
+ AudioCodecInfo AudioEncoderG722::QueryAudioEncoder(
+@@ -77,7 +75,7 @@ std::unique_ptr<AudioEncoder> AudioEncoderG722::MakeAudioEncoder(
+     RTC_DCHECK_NOTREACHED();
+     return nullptr;
+   }
+-  return std::make_unique<AudioEncoderG722Impl>(config, payload_type);
++  return nullptr;  // disabled
+ }
+ 
+ }  // namespace webrtc

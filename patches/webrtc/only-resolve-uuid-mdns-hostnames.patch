@@ -1,0 +1,75 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Threema GmbH <security@threema.ch>
+Date: Mon, 4 May 2026 12:00:00 +0000
+Subject: fix: only resolve UUID-pattern mDNS hostnames to prevent ICE leaks
+
+Validate mDNS candidate hostnames against a UUID4.local regex before
+resolving them. Any non-UUID mDNS hostname is dropped, preventing
+information leakage via unexpected mDNS resolution.
+
+diff --git a/p2p/base/p2p_transport_channel.cc b/p2p/base/p2p_transport_channel.cc
+index c1a006308d..c2d0672ecc 100644
+--- a/p2p/base/p2p_transport_channel.cc
++++ b/p2p/base/p2p_transport_channel.cc
+@@ -18,6 +18,7 @@
+ #include <functional>
+ #include <memory>
+ #include <optional>
++#include <regex>
+ #include <set>
+ #include <string>
+ #include <tuple>
+@@ -1192,13 +1193,23 @@ void P2PTransportChannel::ResolveHostnameCandidate(const Candidate& candidate) {
+     return;
+   }
+ 
++  // Only allow resolving of mDNS hostnames with <UUID4>.local to avoid
++  // any leaks.
++  // See: https://github.com/rtcweb-wg/mdns-ice-candidates/issues/121
++  auto hostname = candidate.address().HostAsSensitiveURIString();
++  if (!std::regex_match(hostname, uuid_local_hostname_regex_)) {
++    RTC_LOG(LS_WARNING) << "Dropping non-UUID ICE candidate hostname "
++                        << hostname;
++    return;
++  }
++
+   auto resolver = async_dns_resolver_factory_->Create();
+   auto resptr = resolver.get();
+   resolvers_.emplace_back(candidate, std::move(resolver));
+   resptr->Start(candidate.address(),
+                 [this, resptr]() { OnCandidateResolved(resptr); });
+   RTC_LOG(LS_INFO) << "Asynchronously resolving ICE candidate hostname "
+-                   << candidate.address().HostAsSensitiveURIString();
++                   << hostname;
+ }
+ 
+ void P2PTransportChannel::AddRemoteCandidate(const Candidate& candidate) {
+diff --git a/p2p/base/p2p_transport_channel.h b/p2p/base/p2p_transport_channel.h
+index e44b6eece4..5842a44275 100644
+--- a/p2p/base/p2p_transport_channel.h
++++ b/p2p/base/p2p_transport_channel.h
+@@ -26,6 +26,7 @@
+ #include <map>
+ #include <memory>
+ #include <optional>
++#include <regex>
+ #include <string>
+ #include <vector>
+ 
+@@ -501,6 +502,16 @@ class RTC_EXPORT P2PTransportChannel : public IceTransportInternal,
+   std::vector<CandidateAndPermission> permission_queries_
+       RTC_GUARDED_BY(&network_thread_);
+ 
++  std::regex uuid_local_hostname_regex_ RTC_GUARDED_BY(network_thread_) =
++      std::regex{
++          "^"
++          "[a-fA-F0-9]{8}-"
++          "[a-fA-F0-9]{4}-"
++          "[a-fA-F0-9]{4}-"
++          "[a-fA-F0-9]{4}-"
++          "[a-fA-F0-9]{12}\\.local"
++          "$"};
++
+   // Bytes/packets sent/received on this channel.
+   uint64_t bytes_sent_ = 0;
+   uint64_t bytes_received_ = 0;

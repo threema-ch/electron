@@ -1,0 +1,28 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Threema GmbH <security@threema.ch>
+Date: Mon, 4 May 2026 12:00:00 +0000
+Subject: fix: enable Opus constant bitrate mode by default
+
+Add cbr=1 to the default Opus SDP format parameters so that constant
+bitrate encoding is used out of the box.
+
+diff --git a/modules/audio_coding/codecs/opus/audio_encoder_opus.cc b/modules/audio_coding/codecs/opus/audio_encoder_opus.cc
+index c3c0f31ab1..e1c5d3a8d3 100644
+--- a/modules/audio_coding/codecs/opus/audio_encoder_opus.cc
++++ b/modules/audio_coding/codecs/opus/audio_encoder_opus.cc
+@@ -222,10 +222,11 @@ int GetMultipliedBitrate(int bitrate, const std::vector<float>& multipliers) {
+ 
+ void AudioEncoderOpusImpl::AppendSupportedEncoders(
+     std::vector<AudioCodecSpec>* specs) {
+-  const SdpAudioFormat fmt = {"opus",
+-                              kRtpTimestampRateHz,
+-                              2,
+-                              {{"minptime", "10"}, {"useinbandfec", "1"}}};
++  const SdpAudioFormat fmt = {
++      "opus",
++      kRtpTimestampRateHz,
++      2,
++      {{"minptime", "10"}, {"useinbandfec", "1"}, {"cbr", "1"}}};
+   const AudioCodecInfo info = QueryAudioEncoder(*SdpToConfig(fmt));
+   specs->push_back({fmt, info});
+ }

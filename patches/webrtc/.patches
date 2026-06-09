@@ -1,2 +1,13 @@
+disable-dtmf-and-comfort-noise.patch
+disable-unused-audio-codecs.patch
+dont-leak-video-orientation.patch
+dtls-cipher-suites.patch
+enable-cbr-by-default.patch
+expose-certificate-fingerprint.patch
+expose-crypto-option-aes-128-sha1-80.patch
+expose-video-capturer-state.patch
 fix_handle_pipewire_capturer_initialization_and_management.patch
+group-call-frame-crypto.patch
+only-resolve-uuid-mdns-hostnames.patch
+srtp-cipher-suites.patch
 cherry-pick-731795bab2d8.patch

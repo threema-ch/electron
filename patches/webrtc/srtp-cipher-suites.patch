@@ -1,0 +1,66 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Threema GmbH <security@threema.ch>
+Date: Mon, 4 May 2026 12:00:00 +0000
+Subject: fix: prefer GCM cipher suites for SRTP
+
+Reorder SRTP cipher suite preferences to prioritise AEAD_AES_256_GCM and
+AEAD_AES_128_GCM over older AES-CM suites. Remove conditional enable
+checks for GCM support.
+
+diff --git a/api/crypto/crypto_options.cc b/api/crypto/crypto_options.cc
+index 53c23e3c25..e34599e110 100644
+--- a/api/crypto/crypto_options.cc
++++ b/api/crypto/crypto_options.cc
+@@ -35,25 +35,21 @@ CryptoOptions CryptoOptions::NoGcm() {
+ 
+ std::vector<int> CryptoOptions::GetSupportedDtlsSrtpCryptoSuites() const {
+   std::vector<int> crypto_suites;
+-  // Note: kSrtpAes128CmSha1_80 is what is required to be supported (by
+-  // draft-ietf-rtcweb-security-arch), but kSrtpAes128CmSha1_32 is allowed as
+-  // well, and saves a few bytes per packet if it ends up selected.
+-  // As the cipher suite is potentially insecure, it will only be used if
+-  // enabled by both peers.
+-  if (srtp.enable_aes128_sha1_32_crypto_cipher) {
+-    crypto_suites.push_back(kSrtpAes128CmSha1_32);
++  // We want to prefer GCM cipher suites even though they increase the packet
++  // size.
++  if (srtp.enable_gcm_crypto_suites) {
++    crypto_suites.push_back(kSrtpAeadAes256Gcm);
++    crypto_suites.push_back(kSrtpAeadAes128Gcm);
+   }
++
++  // Note: kSrtpAes128CmSha1_80 is what is required to be supported (by
++  // draft-ietf-rtcweb-security-arch).
++  // kSrtpAes128CmSha1_32 is a joke, so we won't even consider it,
++  // regardless of the boolean option.
+   if (srtp.enable_aes128_sha1_80_crypto_cipher) {
+     crypto_suites.push_back(kSrtpAes128CmSha1_80);
+   }
+ 
+-  // Note: GCM cipher suites are not the top choice since they increase the
+-  // packet size. In order to negotiate them the other side must not support
+-  // kSrtpAes128CmSha1_80.
+-  if (srtp.enable_gcm_crypto_suites) {
+-    crypto_suites.push_back(kSrtpAeadAes256Gcm);
+-    crypto_suites.push_back(kSrtpAeadAes128Gcm);
+-  }
+   RTC_CHECK(!crypto_suites.empty());
+   return crypto_suites;
+ }
+diff --git a/rtc_base/openssl_stream_adapter.cc b/rtc_base/openssl_stream_adapter.cc
+index d4a1e7c1a4..571aa15734 100644
+--- a/rtc_base/openssl_stream_adapter.cc
++++ b/rtc_base/openssl_stream_adapter.cc
+@@ -83,10 +83,9 @@ struct SrtpCipherMapEntry {
+ 
+ // This isn't elegant, but it's better than an external reference
+ constexpr SrtpCipherMapEntry kSrtpCipherMap[] = {
+-    {.internal_name = "SRTP_AES128_CM_SHA1_80", .id = kSrtpAes128CmSha1_80},
+-    {.internal_name = "SRTP_AES128_CM_SHA1_32", .id = kSrtpAes128CmSha1_32},
++    {.internal_name = "SRTP_AEAD_AES_256_GCM", .id = kSrtpAeadAes256Gcm},
+     {.internal_name = "SRTP_AEAD_AES_128_GCM", .id = kSrtpAeadAes128Gcm},
+-    {.internal_name = "SRTP_AEAD_AES_256_GCM", .id = kSrtpAeadAes256Gcm}};
++    {.internal_name = "SRTP_AES128_CM_SHA1_80", .id = kSrtpAes128CmSha1_80}};
+ 
+ #ifdef OPENSSL_IS_BORINGSSL
+ // Enabled by EnableTimeCallbackForTesting. Should never be set in production
