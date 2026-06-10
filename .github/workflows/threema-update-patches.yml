@@ -1,4 +1,4 @@
-name: Update Patches
+name: Threema Update Patches
 
 # Syncs the Chromium source, re-applies all patches with three-way merge,
 # re-exports the patch files, and commits any changes back to the branch.

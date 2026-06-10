@@ -1,4 +1,4 @@
-name: Validate Patches
+name: Threema Validate Patches
 
 # Checks that all patches in patches/ apply cleanly against the current
 # Chromium source and that the .patch files match what would be re-exported
