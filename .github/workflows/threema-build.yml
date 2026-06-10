@@ -47,6 +47,11 @@ on:
         description: 'Build Windows x64'
         default: false
         required: false
+      build-node-headers:
+        type: boolean
+        description: 'Build Node.js headers (platform-independent; required for @electron/get consumers)'
+        default: false
+        required: false
       gn-build-type:
         type: choice
         description: 'GN build type: testing (faster, larger binary) or release (optimized)'
@@ -54,11 +59,6 @@ on:
           - testing
           - release
         default: testing
-        required: false
-      generate-symbols:
-        type: boolean
-        description: 'Generate debug symbols (significantly increases build time and artifact size)'
-        default: false
         required: false
       version:
         type: string
@@ -104,8 +104,9 @@ jobs:
         fetch-depth: 0
 
     - name: Clean build output
-      run: |
-        rm -rf src/out/Default 2>/dev/null || true
+      # The runner workspace is persistent across jobs; remove any stale
+      # out/Default from a previous run so e init starts from a clean slate.
+      run: rm -rf src/out/Default 2>/dev/null || true
 
     - name: Set Chromium Git Cookie
       uses: ./src/electron/.github/actions/set-chromium-cookie
@@ -131,6 +132,7 @@ jobs:
           "$GN_BUILD_TYPE" --import "$GN_BUILD_TYPE" \
           --target-cpu "$TARGET_ARCH" \
           --remote-build none
+
     - name: Run Electron-only hooks
       run: |
         e d gclient runhooks --spec="solutions=[{'name':'src/electron','url':None,'deps_file':'DEPS','custom_vars':{'process_deps':False},'managed':False}]"
@@ -143,6 +145,9 @@ jobs:
 
     - name: Build Electron
       run: |
+        # Pack loose git refs before the build to reduce filesystem overhead:
+        # ninja spawns many processes and scanning thousands of loose ref files
+        # adds measurable latency on large builds.
         cd src/electron && git pack-refs && cd ../..
         if [ "$GN_BUILD_TYPE" = "release" ]; then
           NINJA_SUMMARIZE_BUILD=1 e build --target electron:release_build
@@ -155,12 +160,6 @@ jobs:
         cd src
         e build --target electron:electron_chromedriver_zip
 
-    - name: Build node headers
-      run: |
-        cd src
-        e build --target electron:node_headers
-        cp out/Default/gen/node_headers.tar.gz out/Default/node_headers.tar.gz
-
     - name: Upload dist artifacts
       if: always() && !cancelled()
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -169,7 +168,6 @@ jobs:
         path: |
           src/out/Default/dist.zip
           src/out/Default/chromedriver.zip
-          src/out/Default/node_headers.tar.gz
 
 # ──────────────────────────────────────────────────────────────────────────────
 # LINUX arm64  (cross-compiled on x64 runner)
@@ -199,8 +197,9 @@ jobs:
         fetch-depth: 0
 
     - name: Clean build output
-      run: |
-        rm -rf src/out/Default 2>/dev/null || true
+      # The runner workspace is persistent across jobs; remove any stale
+      # out/Default from a previous run so e init starts from a clean slate.
+      run: rm -rf src/out/Default 2>/dev/null || true
 
     - name: Set Chromium Git Cookie
       uses: ./src/electron/.github/actions/set-chromium-cookie
@@ -226,6 +225,7 @@ jobs:
           "$GN_BUILD_TYPE" --import "$GN_BUILD_TYPE" \
           --target-cpu "$TARGET_ARCH" \
           --remote-build none
+
     - name: Run Electron-only hooks
       run: |
         e d gclient runhooks --spec="solutions=[{'name':'src/electron','url':None,'deps_file':'DEPS','custom_vars':{'process_deps':False},'managed':False}]"
@@ -238,6 +238,9 @@ jobs:
 
     - name: Build Electron
       run: |
+        # Pack loose git refs before the build to reduce filesystem overhead:
+        # ninja spawns many processes and scanning thousands of loose ref files
+        # adds measurable latency on large builds.
         cd src/electron && git pack-refs && cd ../..
         if [ "$GN_BUILD_TYPE" = "release" ]; then
           NINJA_SUMMARIZE_BUILD=1 e build --target electron:release_build
@@ -260,7 +263,7 @@ jobs:
           src/out/Default/chromedriver.zip
 
 # ──────────────────────────────────────────────────────────────────────────────
-# macOS arm64  (native on M-series runner)
+# macOS arm64  (cross-compiled on Intel runner)
 # ──────────────────────────────────────────────────────────────────────────────
   macos-arm64:
     name: 'macOS / arm64'
@@ -275,6 +278,7 @@ jobs:
       GN_BUILD_TYPE: ${{ inputs.gn-build-type || 'testing' }}
       ELECTRON_DEPOT_TOOLS_DISABLE_LOG: "1"
       CHROMIUM_GIT_COOKIE: ${{ secrets.CHROMIUM_GIT_COOKIE }}
+      # Required for Metal shader compilation on macOS
       TOOLCHAINS: Metal
 
     steps:
@@ -307,11 +311,12 @@ jobs:
       with:
         node-version: 22.21.x
 
-
     - name: Set GN_EXTRA_ARGS for macOS arm64 cross-compilation
       run: |
         # Intel host → arm64 target. No v8_snapshot_toolchain override needed
         # because the snapshot generator runs natively on the x64 host.
+        # GN_EXTRA_ARGS is consumed by downstream build tooling and must be set
+        # explicitly to avoid confusion from the host/target arch mismatch.
         echo "GN_EXTRA_ARGS=target_cpu=\"arm64\"" >> $GITHUB_ENV
 
     - name: Set Chromium Git Cookie
@@ -341,18 +346,13 @@ jobs:
 
     - name: Fix dsymutil for cross-compilation
       run: |
-        # fix-sync picks dsymutil by TARGET_ARCH, but dsymutil must run on the
-        # host. When cross-compiling, re-download the host-arch binary instead.
+        # fix-sync downloads dsymutil for TARGET_ARCH (arm64), but dsymutil
+        # must run on the host. Re-download the host-arch (x64) binary instead.
         HOST_ARCH=$(uname -m | sed 's/x86_64/x64/')
-        if [ "$HOST_ARCH" != "$TARGET_ARCH" ]; then
-          echo "Cross-compiling ($HOST_ARCH host → $TARGET_ARCH target): fixing dsymutil"
-          python3 src/third_party/depot_tools/download_from_google_storage.py \
-            --no_resume --no_auth --bucket chromium-browser-clang \
-            -s "src/tools/clang/dsymutil/bin/dsymutil.${HOST_ARCH}.sha1" \
-            -o src/tools/clang/dsymutil/bin/dsymutil
-        else
-          echo "Native build ($TARGET_ARCH): dsymutil already correct, skipping"
-        fi
+        python3 src/third_party/depot_tools/download_from_google_storage.py \
+          --no_resume --no_auth --bucket chromium-browser-clang \
+          -s "src/tools/clang/dsymutil/bin/dsymutil.${HOST_ARCH}.sha1" \
+          -o src/tools/clang/dsymutil/bin/dsymutil
 
     - name: Init build configuration
       run: |
@@ -360,6 +360,7 @@ jobs:
           "$GN_BUILD_TYPE" --import "$GN_BUILD_TYPE" \
           --target-cpu "$TARGET_ARCH" \
           --remote-build none
+
     - name: Run Electron-only hooks
       run: |
         e d gclient runhooks --spec="solutions=[{'name':'src/electron','url':None,'deps_file':'DEPS','custom_vars':{'process_deps':False},'managed':False}]"
@@ -370,9 +371,11 @@ jobs:
     - name: Install yarn dependencies
       uses: ./src/electron/.github/actions/install-dependencies
 
-
     - name: Build Electron
       run: |
+        # Pack loose git refs before the build to reduce filesystem overhead:
+        # ninja spawns many processes and scanning thousands of loose ref files
+        # adds measurable latency on large builds.
         cd src/electron && git pack-refs && cd ../..
         if [ "$GN_BUILD_TYPE" = "release" ]; then
           NINJA_SUMMARIZE_BUILD=1 e build --target electron:release_build
@@ -410,6 +413,7 @@ jobs:
       GN_BUILD_TYPE: ${{ inputs.gn-build-type || 'testing' }}
       ELECTRON_DEPOT_TOOLS_DISABLE_LOG: "1"
       CHROMIUM_GIT_COOKIE: ${{ secrets.CHROMIUM_GIT_COOKIE }}
+      # Required for Metal shader compilation on macOS
       TOOLCHAINS: Metal
 
     steps:
@@ -442,11 +446,10 @@ jobs:
       with:
         node-version: 22.21.x
 
-
     - name: Set GN_EXTRA_ARGS for macOS x64
       run: |
-        # Intel host → x64 target: native compilation, no cross-compile args needed.
-        # target_cpu defaults to x64 on an Intel host, so this is a no-op guard.
+        # Explicitly pin target_cpu so downstream build tooling sees a consistent
+        # value regardless of host defaults.
         echo "GN_EXTRA_ARGS=target_cpu=\"x64\"" >> $GITHUB_ENV
 
     - name: Set Chromium Git Cookie
@@ -480,6 +483,7 @@ jobs:
           "$GN_BUILD_TYPE" --import "$GN_BUILD_TYPE" \
           --target-cpu "$TARGET_ARCH" \
           --remote-build none
+
     - name: Run Electron-only hooks
       run: |
         e d gclient runhooks --spec="solutions=[{'name':'src/electron','url':None,'deps_file':'DEPS','custom_vars':{'process_deps':False},'managed':False}]"
@@ -490,9 +494,11 @@ jobs:
     - name: Install yarn dependencies
       uses: ./src/electron/.github/actions/install-dependencies
 
-
     - name: Build Electron
       run: |
+        # Pack loose git refs before the build to reduce filesystem overhead:
+        # ninja spawns many processes and scanning thousands of loose ref files
+        # adds measurable latency on large builds.
         cd src/electron && git pack-refs && cd ../..
         if [ "$GN_BUILD_TYPE" = "release" ]; then
           NINJA_SUMMARIZE_BUILD=1 e build --target electron:release_build
@@ -585,6 +591,7 @@ jobs:
           "$GN_BUILD_TYPE" --import "$GN_BUILD_TYPE" \
           --target-cpu "$TARGET_ARCH" \
           --remote-build none
+
     - name: Run Electron-only hooks
       run: |
         e d gclient runhooks --spec="solutions=[{'name':'src/electron','url':None,'deps_file':'DEPS','custom_vars':{'process_deps':False,'checkout_win':True},'managed':False}]"
@@ -603,6 +610,9 @@ jobs:
       shell: powershell
       run: |
         $ErrorActionPreference = 'Continue'
+        # Pack loose git refs before the build to reduce filesystem overhead:
+        # ninja spawns many processes and scanning thousands of loose ref files
+        # adds measurable latency on large builds.
         cd src\electron
         git pack-refs
         cd ..\..
@@ -635,6 +645,88 @@ jobs:
           src/out/Default/chromedriver.zip
 
 # ──────────────────────────────────────────────────────────────────────────────
+# NODE HEADERS  (platform-independent, built from Linux x64)
+#
+# Node.js headers are identical across platforms — only one build is needed.
+# They are published as node-v{version}-headers.tar.gz and consumed by
+# @electron/get when building native Node modules against this Electron.
+# ──────────────────────────────────────────────────────────────────────────────
+  node-headers:
+    name: 'Node Headers'
+    if: ${{ github.repository == 'threema-ch/electron' && inputs.build-node-headers }}
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 240
+    container:
+      image: ghcr.io/electron/build:daad061f4b99a0ae1c841be4aa09188280a9c8a4
+      options: --user root
+    env:
+      TARGET_ARCH: x64
+      TARGET_PLATFORM: linux
+      GCLIENT_EXTRA_ARGS: '--custom-var=checkout_arm=True --custom-var=checkout_arm64=True'
+      GN_BUILD_TYPE: ${{ inputs.gn-build-type || 'testing' }}
+      CHROMIUM_GIT_COOKIE: ${{ secrets.CHROMIUM_GIT_COOKIE }}
+
+    steps:
+    - name: Checkout Electron
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      with:
+        path: src/electron
+        fetch-depth: 0
+
+    - name: Clean build output
+      # The runner workspace is persistent across jobs; remove any stale
+      # out/Default from a previous run so e init starts from a clean slate.
+      run: rm -rf src/out/Default 2>/dev/null || true
+
+    - name: Set Chromium Git Cookie
+      uses: ./src/electron/.github/actions/set-chromium-cookie
+
+    - name: Install Build Tools
+      uses: ./src/electron/.github/actions/install-build-tools
+
+    - name: Sync Chromium source and apply patches
+      run: |
+        e d gclient config \
+          --name "src/electron" \
+          --unmanaged \
+          $GCLIENT_EXTRA_ARGS \
+          "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+        ELECTRON_DEPOT_TOOLS_WIN_TOOLCHAIN=0 \
+        DEPOT_TOOLS_WIN_TOOLCHAIN=0 \
+        ELECTRON_USE_THREE_WAY_MERGE_FOR_PATCHES=1 \
+          e d gclient sync --with_branch_heads --with_tags
+
+    - name: Init build configuration
+      run: |
+        e init -f --root=$(pwd) --out=Default \
+          "$GN_BUILD_TYPE" --import "$GN_BUILD_TYPE" \
+          --target-cpu "$TARGET_ARCH" \
+          --remote-build none
+
+    - name: Run Electron-only hooks
+      run: |
+        e d gclient runhooks --spec="solutions=[{'name':'src/electron','url':None,'deps_file':'DEPS','custom_vars':{'process_deps':False},'managed':False}]"
+
+    - name: Add CHROMIUM_BUILDTOOLS_PATH
+      run: echo "CHROMIUM_BUILDTOOLS_PATH=$(pwd)/src/buildtools" >> $GITHUB_ENV
+
+    - name: Install yarn dependencies
+      uses: ./src/electron/.github/actions/install-dependencies
+
+    - name: Build node headers
+      run: |
+        cd src
+        e build --target electron:node_headers
+        cp out/Default/gen/node_headers.tar.gz out/Default/node_headers.tar.gz
+
+    - name: Upload node headers artifact
+      if: always() && !cancelled()
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: electron-node-headers
+        path: src/out/Default/node_headers.tar.gz
+
+# ──────────────────────────────────────────────────────────────────────────────
 # PUBLISH — collects all platform artifacts and creates a GitHub Release
 #
 # Runs only on push to main or workflow_dispatch (not on threema/** branches).
@@ -647,7 +739,7 @@ jobs:
 # ──────────────────────────────────────────────────────────────────────────────
   publish:
     name: 'Publish GitHub Release'
-    needs: [linux-x64, linux-arm64, macos-arm64, macos-x64, windows-x64]
+    needs: [linux-x64, linux-arm64, macos-arm64, macos-x64, windows-x64, node-headers]
     environment: release
     # Run if at least one build succeeded and none failed/cancelled.
     # Skipped jobs (e.g. macos-x64 which is off by default) are fine.
@@ -715,6 +807,13 @@ jobs:
         name: electron-windows-x64
         path: artifacts/windows-x64
 
+    - name: Download node headers artifact
+      if: needs.node-headers.result == 'success'
+      uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+      with:
+        name: electron-node-headers
+        path: artifacts/node-headers
+
     - name: Rename artifacts to @electron/get naming convention
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -743,8 +842,8 @@ jobs:
         rename artifacts/windows-x64/dist.zip        "electron-v${VERSION}-win32-x64.zip"
         rename artifacts/windows-x64/chromedriver.zip "chromedriver-v${VERSION}-win32-x64.zip"
 
-        # Node headers — built from source in the linux-x64 job (platform-independent).
-        rename artifacts/linux-x64/node_headers.tar.gz \
+        # Node headers — platform-independent, built by the node-headers job.
+        rename artifacts/node-headers/node_headers.tar.gz \
           "node-v${VERSION}-headers.tar.gz"
 
         cd release-assets
