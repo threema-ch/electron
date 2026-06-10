@@ -1,0 +1,105 @@
+name: Update Patches
+
+# Syncs the Chromium source, re-applies all patches with three-way merge,
+# re-exports the patch files, and commits any changes back to the branch.
+#
+# Use this workflow after:
+#   - Merging/rebasing the fork onto a new upstream Electron version, to
+#     update patch files that shifted context during the three-way merge.
+#   - Manually editing patch commits in a subrepo, to re-export the changes
+#     back into patches/ as .patch files.
+#
+# If gclient sync fails due to an unresolvable patch conflict the job fails
+# and the log will show which patch and file caused the conflict. Fix it
+# locally (amend the patch commit in the subrepo, re-export, commit), then
+# re-run.
+#
+# RUNNER REQUIREMENTS: same as threema-build.yml (150+ GB disk, 16+ cores).
+
+on:
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  BUILD_IMAGE_SHA: daad061f4b99a0ae1c841be4aa09188280a9c8a4
+  GCLIENT_EXTRA_ARGS: '--custom-var=checkout_arm=True --custom-var=checkout_arm64=True'
+
+jobs:
+  update-patches:
+    name: Update Patches
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 240
+    container:
+      image: ghcr.io/electron/build:daad061f4b99a0ae1c841be4aa09188280a9c8a4
+      options: --user root
+    permissions:
+      contents: write
+    env:
+      CHROMIUM_GIT_COOKIE: ${{ secrets.CHROMIUM_GIT_COOKIE }}
+
+    steps:
+      - name: Checkout Electron
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          path: src/electron
+          fetch-depth: 0
+
+      - name: Set Chromium Git Cookie
+        uses: ./src/electron/.github/actions/set-chromium-cookie
+
+      - name: Install Build Tools
+        uses: ./src/electron/.github/actions/install-build-tools
+
+      - name: Add patch conflict problem matcher
+        run: echo "::add-matcher::src/electron/.github/problem-matchers/patch-conflict.json"
+
+      - name: Sync Chromium source and apply patches
+        run: |
+          e d gclient config \
+            --name "src/electron" \
+            --unmanaged \
+            $GCLIENT_EXTRA_ARGS \
+            "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+          ELECTRON_DEPOT_TOOLS_WIN_TOOLCHAIN=0 \
+          DEPOT_TOOLS_WIN_TOOLCHAIN=0 \
+          ELECTRON_USE_THREE_WAY_MERGE_FOR_PATCHES=1 \
+            e d gclient sync --with_branch_heads --with_tags
+
+      - name: Re-export patch files
+        run: |
+          python3 src/electron/script/export_all_patches.py \
+            src/electron/patches/config.json
+
+      - name: Commit updated patches if changed
+        run: |
+          cd src/electron
+          git update-index --refresh || true
+          if git diff-index --quiet HEAD --; then
+            echo "No patch changes — nothing to commit."
+            exit 0
+          fi
+
+          echo "Patch files changed after apply+export:"
+          git diff --stat
+
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          # Set token-authenticated remote so the push works inside the container.
+          git remote set-url origin \
+            "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
+
+          git add patches/
+          git commit -m "chore: update patches"
+          git push origin "HEAD:${{ github.ref_name }}"
+
+          echo "Pushed updated patches to ${{ github.ref_name }}."
+
+      - name: Remove patch conflict problem matchers
+        if: always()
+        run: |
+          echo "::remove-matcher owner=merge-conflict::"
+          echo "::remove-matcher owner=patch-conflict::"
+          echo "::remove-matcher owner=patch-needs-update::"

@@ -1,0 +1,82 @@
+name: Validate Patches
+
+# Checks that all patches in patches/ apply cleanly against the current
+# Chromium source and that the .patch files match what would be re-exported
+# from the applied commits (i.e. no stale diffs).
+#
+# Runs automatically on PRs that touch patches/ or DEPS.
+# Can also be triggered manually via workflow_dispatch.
+#
+# RUNNER REQUIREMENTS: same as threema-build.yml (150+ GB disk, 16+ cores).
+
+on:
+  pull_request:
+    paths:
+      - 'patches/**'
+      - 'DEPS'
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  BUILD_IMAGE_SHA: daad061f4b99a0ae1c841be4aa09188280a9c8a4
+  GCLIENT_EXTRA_ARGS: '--custom-var=checkout_arm=True --custom-var=checkout_arm64=True'
+
+jobs:
+  validate-patches:
+    name: Validate Patches
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 240
+    container:
+      image: ghcr.io/electron/build:daad061f4b99a0ae1c841be4aa09188280a9c8a4
+      options: --user root
+    permissions:
+      contents: read
+    env:
+      CHROMIUM_GIT_COOKIE: ${{ secrets.CHROMIUM_GIT_COOKIE }}
+
+    steps:
+      - name: Checkout Electron
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          path: src/electron
+          fetch-depth: 0
+
+      - name: Set Chromium Git Cookie
+        uses: ./src/electron/.github/actions/set-chromium-cookie
+
+      - name: Install Build Tools
+        uses: ./src/electron/.github/actions/install-build-tools
+
+      - name: Add patch conflict problem matcher
+        run: echo "::add-matcher::src/electron/.github/problem-matchers/patch-conflict.json"
+
+      - name: Sync Chromium source and apply patches
+        run: |
+          e d gclient config \
+            --name "src/electron" \
+            --unmanaged \
+            $GCLIENT_EXTRA_ARGS \
+            "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+          ELECTRON_DEPOT_TOOLS_WIN_TOOLCHAIN=0 \
+          DEPOT_TOOLS_WIN_TOOLCHAIN=0 \
+          ELECTRON_USE_THREE_WAY_MERGE_FOR_PATCHES=1 \
+            e d gclient sync --with_branch_heads --with_tags
+
+      - name: Check patch files are up to date
+        # export_all_patches.py --dry-run compares each patch against what
+        # would be re-exported from the applied commits and exits non-zero if
+        # any file differs. This catches both un-exported edits and patches
+        # whose context shifted (and should be re-exported after three-way merge).
+        run: |
+          python3 src/electron/script/export_all_patches.py \
+            --dry-run src/electron/patches/config.json
+
+      - name: Remove patch conflict problem matchers
+        if: always()
+        run: |
+          echo "::remove-matcher owner=merge-conflict::"
+          echo "::remove-matcher owner=patch-conflict::"
+          echo "::remove-matcher owner=patch-needs-update::"
