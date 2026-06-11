@@ -243,14 +243,17 @@ Download and install both:
 - **Git for Windows** from https://git-scm.com/download/win — during setup enable **Git Credential Manager** and **Enable long paths**
 - **Node.js** LTS (v22.12.0 or later) from https://nodejs.org
 
-Both installers add their binaries to the **user** PATH only. Add them to the
-**system** PATH so the runner service can find them:
+Both installers add their binaries to the **user** PATH only. The runner service
+uses the **system** PATH even when running as a specific user (`HKCU` PATH is not
+inherited). Add everything the service needs to system PATH:
 
 ```powershell
-$gitBin   = "C:\Program Files\Git\bin"   # bash.exe for runner scripts
-$nodePath = "C:\Program Files\nodejs"
+$gitBin     = "C:\Program Files\Git\bin"                                                  # bash.exe for runner scripts
+$nodePath   = "C:\Program Files\nodejs"
+$npmPrefix  = "C:\Users\github-runner\AppData\Roaming\npm"                                # e from @electron/build-tools
+$depotTools = "C:\Users\github-runner\.electron_build_tools\third_party\depot_tools"      # python3.bat for fix-sync
 $cur = [System.Environment]::GetEnvironmentVariable("PATH", "Machine")
-[System.Environment]::SetEnvironmentVariable("PATH", "$cur;$gitBin;$nodePath", "Machine")
+[System.Environment]::SetEnvironmentVariable("PATH", "$cur;$gitBin;$nodePath;$npmPrefix;$depotTools", "Machine")
 ```
 
 ### 3 — Create the runner user
