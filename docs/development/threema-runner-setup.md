@@ -272,20 +272,6 @@ New-Item -ItemType Directory -Path D:\actions-runner
 icacls "D:\actions-runner" /grant "github-runner:(OI)(CI)F"
 ```
 
-Write the Git config into the account's profile. Windows only creates the profile
-directory on first login, so create it first. `install-build-tools` only sets
-these for MSYS2 bash; Git for Windows is silently skipped otherwise:
-
-```powershell
-New-Item -ItemType Directory -Force -Path "C:\Users\github-runner"
-$cfg = "C:\Users\github-runner\.gitconfig"
-git config --file $cfg core.filemode          false
-git config --file $cfg core.autocrlf          false
-git config --file $cfg core.fscache           true
-git config --file $cfg core.longpaths         true
-git config --file $cfg core.preloadindex      true
-git config --file $cfg branch.autosetuprebase always
-```
 
 ### 4 — Install Visual Studio Build Tools
 
@@ -347,13 +333,33 @@ Expand-Archive actions-runner-win-x64.zip -DestinationPath .
   --windowslogonpassword "<PASSWORD>"
 ```
 
-### 7 — Start the Windows service
+### 7 — Start the service and write the Git config
 
 The runner is registered as a Windows service automatically by `config.cmd` — there is
-no separate install step. Manage it with PowerShell (run as Administrator):
+no separate install step. Start it once so Windows creates the `github-runner` user
+profile, then write the Git config before letting it pick up jobs:
 
 ```powershell
-# Start
+Start-Service "actions.runner.*"
+Start-Sleep -Seconds 5
+Stop-Service "actions.runner.*"
+```
+
+Write the Git config into the now-created profile. `install-build-tools` only sets
+these for MSYS2 bash; Git for Windows is silently skipped otherwise:
+
+```powershell
+$cfg = "C:\Users\github-runner\.gitconfig"
+git config --file $cfg core.filemode          false
+git config --file $cfg core.autocrlf          false
+git config --file $cfg core.fscache           true
+git config --file $cfg core.longpaths         true
+git config --file $cfg core.preloadindex      true
+git config --file $cfg branch.autosetuprebase always
+```
+
+```powershell
+# Start permanently
 Start-Service "actions.runner.*"
 
 # Check status
