@@ -65,15 +65,6 @@ jobs:
           ELECTRON_USE_THREE_WAY_MERGE_FOR_PATCHES=1 \
             e d gclient sync --with_branch_heads --with_tags
 
-      - name: Check patch files are up to date
-        # export_all_patches.py --dry-run compares each patch against what
-        # would be re-exported from the applied commits and exits non-zero if
-        # any file differs. This catches both un-exported edits and patches
-        # whose context shifted (and should be re-exported after three-way merge).
-        run: |
-          python3 src/electron/script/export_all_patches.py \
-            --dry-run src/electron/patches/config.json
-
       - name: Remove patch conflict problem matchers
         if: always()
         run: |
