@@ -243,36 +243,48 @@ Download and install both:
 - **Git for Windows** from https://git-scm.com/download/win — during setup enable **Git Credential Manager** and **Enable long paths**
 - **Node.js** LTS (v22.12.0 or later) from https://nodejs.org
 
-Both installers add their binaries to the **user** PATH only. The runner service
-runs as `NT AUTHORITY\NETWORK SERVICE` and uses the **system** PATH. Add
-everything in one elevated PowerShell block:
+Both installers add their binaries to the **user** PATH only. Add them to the
+**system** PATH so the runner service can find them:
 
 ```powershell
-$gitBin     = "C:\Program Files\Git\bin"          # bash.exe for runner scripts
-$nodePath   = "C:\Program Files\nodejs"
-$npmPrefix  = "C:\Windows\ServiceProfiles\NetworkService\AppData\Roaming\npm"
-$depotTools = "C:\Windows\ServiceProfiles\NetworkService\.electron_build_tools\third_party\depot_tools"
+$gitBin   = "C:\Program Files\Git\bin"   # bash.exe for runner scripts
+$nodePath = "C:\Program Files\nodejs"
 $cur = [System.Environment]::GetEnvironmentVariable("PATH", "Machine")
-[System.Environment]::SetEnvironmentVariable("PATH", "$cur;$gitBin;$nodePath;$npmPrefix;$depotTools", "Machine")
+[System.Environment]::SetEnvironmentVariable("PATH", "$cur;$gitBin;$nodePath", "Machine")
 ```
 
-> `$depotTools` is installed by `install-build-tools` on the first run; adding it
-> upfront makes `python3.bat` visible to PowerShell steps in `fix-sync`.
+### 3 — Create the runner user
 
-Then write the Git config directly into the `NETWORK SERVICE` profile.
-`install-build-tools` only sets these for MSYS2 bash; Git for Windows is silently skipped:
+The runner service runs as a dedicated local account. `config.cmd` grants it
+`SeServiceLogonRight` automatically during registration.
 
 ```powershell
-$ns = "C:\Windows\ServiceProfiles\NetworkService\.gitconfig"
-git config --file $ns core.filemode          false
-git config --file $ns core.autocrlf          false
-git config --file $ns core.fscache           true
-git config --file $ns core.longpaths         true
-git config --file $ns core.preloadindex      true
-git config --file $ns branch.autosetuprebase always
+net user github-runner <PASSWORD> /add
 ```
 
-### 3 — Install Visual Studio Build Tools
+Create the runner directory and grant the account full access:
+
+```powershell
+New-Item -ItemType Directory -Path D:\actions-runner
+icacls "D:\actions-runner" /grant "github-runner:(OI)(CI)F"
+```
+
+Write the Git config into the account's profile. Windows only creates the profile
+directory on first login, so create it first. `install-build-tools` only sets
+these for MSYS2 bash; Git for Windows is silently skipped otherwise:
+
+```powershell
+New-Item -ItemType Directory -Force -Path "C:\Users\github-runner"
+$cfg = "C:\Users\github-runner\.gitconfig"
+git config --file $cfg core.filemode          false
+git config --file $cfg core.autocrlf          false
+git config --file $cfg core.fscache           true
+git config --file $cfg core.longpaths         true
+git config --file $cfg core.preloadindex      true
+git config --file $cfg branch.autosetuprebase always
+```
+
+### 4 — Install Visual Studio Build Tools
 
 Required by node-gyp to compile Electron's native test fixtures during
 `yarn install`. Download and run the bootstrapper (~3 GB, 10–15 min):
@@ -299,7 +311,7 @@ Start-Process -Wait `
 node-gyp finds MSVC automatically via the registry — no PATH changes or
 runner restart needed.
 
-### 4 — Add Debugging Tools for Windows
+### 5 — Add Debugging Tools for Windows
 
 Required for release builds to generate PDB files for crash reporting:
 
@@ -309,10 +321,9 @@ Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/?linkid=2164145" `
 & "$env:TEMP\winsdksetup.exe" /features OptionId.WindowsDesktopDebuggers /quiet /norestart
 ```
 
-### 5 — Download and configure the runner
+### 6 — Download and configure the runner
 
 ```powershell
-New-Item -ItemType Directory -Path D:\actions-runner   # choose a drive with 200 GB+
 Set-Location D:\actions-runner
 
 # Download — use the exact URL shown in the GitHub UI
@@ -328,10 +339,12 @@ Expand-Archive actions-runner-win-x64.zip -DestinationPath .
   --labels self-hosted,Windows,x64 `
   --work D:\actions-runner\_work `
   --unattended `
-  --runasservice
+  --runasservice `
+  --windowslogonaccount ".\github-runner" `
+  --windowslogonpassword "<PASSWORD>"
 ```
 
-### 6 — Start the Windows service
+### 7 — Start the Windows service
 
 The runner is registered as a Windows service automatically by `config.cmd` — there is
 no separate install step. Manage it with PowerShell (run as Administrator):
@@ -352,10 +365,10 @@ The service starts automatically on boot. Check logs in `D:\actions-runner\_diag
 ### Notes
 
 - `depot_tools` downloads the pinned MSVC toolchain during `fix-sync` — this is a
-  multi-GB download on the first run.
-- The runner service must be started **after** all system PATH changes are made
-  (Git `bin\`, Node.js, and npm prefix). The service captures PATH at startup
-  and does not pick up changes until it is restarted.
+  multi-GB download on the first run. It installs into the `github-runner` user
+  profile and is added to PATH by `fix-sync` within the build environment.
+- The runner service must be started **after** all system PATH changes are made.
+  The service captures PATH at startup and does not pick up changes until restarted.
 
 ---
 
