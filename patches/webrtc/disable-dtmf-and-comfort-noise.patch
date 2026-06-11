@@ -7,7 +7,7 @@ Remove DTMF tone-dialing and comfort noise (CN) codec support from voice
 engine and platform SDK wrappers. Threema does not use these codecs.
 
 diff --git a/media/engine/webrtc_voice_engine.cc b/media/engine/webrtc_voice_engine.cc
-index 1998317924..667b9c8ddb 100644
+index 199831792481a6ec72e40d8f9b7c9be2f5c00b02..667b9c8ddbdad4b01b9418c9803a7d4674c2e39e 100644
 --- a/media/engine/webrtc_voice_engine.cc
 +++ b/media/engine/webrtc_voice_engine.cc
 @@ -370,12 +370,6 @@ std::vector<Codec> LegacyCollectCodecs(const std::vector<AudioCodecSpec>& specs,
@@ -131,7 +131,7 @@ index 1998317924..667b9c8ddb 100644
    // Loop through the codecs to find the RED codec that matches opus
    // with respect to clockrate and number of channels.
 diff --git a/sdk/android/api/org/webrtc/RtpSender.java b/sdk/android/api/org/webrtc/RtpSender.java
-index de0781e2e7..adeefbe20c 100644
+index de0781e2e746b895ce46a694eca5deff43d57ddd..adeefbe20ca9c4cca50828a0ae51bdb3697100e8 100644
 --- a/sdk/android/api/org/webrtc/RtpSender.java
 +++ b/sdk/android/api/org/webrtc/RtpSender.java
 @@ -28,12 +28,7 @@ public class RtpSender {
@@ -149,10 +149,10 @@ index de0781e2e7..adeefbe20c 100644
  
    /**
 diff --git a/sdk/objc/api/peerconnection/RTCRtpSender.mm b/sdk/objc/api/peerconnection/RTCRtpSender.mm
-index f3135c6e5c..9c4ba7f4d0 100644
+index f3135c6e5ca6d320c3882882ba0866cd0c2ba146..9c4ba7f4d0c793b264c0a68c37b53359d3ae88c0 100644
 --- a/sdk/objc/api/peerconnection/RTCRtpSender.mm
 +++ b/sdk/objc/api/peerconnection/RTCRtpSender.mm
-@@ -128,14 +128,6 @@
+@@ -128,14 +128,6 @@ - (void)setFrameEncryptor:
    if (self) {
      _factory = factory;
      _nativeRtpSender = nativeRtpSender;

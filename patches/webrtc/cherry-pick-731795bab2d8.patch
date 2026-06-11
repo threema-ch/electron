@@ -22,10 +22,10 @@ Commit-Queue: Tomas Gunnarsson <tommi@webrtc.org>
 Cr-Commit-Position: refs/heads/main@{#47242}
 
 diff --git a/pc/BUILD.gn b/pc/BUILD.gn
-index f6a1f3767a3f3c31f72ed94311c5a40a6b950cba..a75291ea25e70a66322a19ba56069b7f58be81ce 100644
+index bbff9be0b3cdc91a74978a944cfd923a81f2067c..cfde99a6c282e4c5560b18c926f94a42bc23d791 100644
 --- a/pc/BUILD.gn
 +++ b/pc/BUILD.gn
-@@ -1475,6 +1475,7 @@ rtc_library("legacy_stats_collector") {
+@@ -1495,6 +1495,7 @@ rtc_library("legacy_stats_collector") {
      "../rtc_base:threading",
      "../rtc_base:timeutils",
      "../system_wrappers",

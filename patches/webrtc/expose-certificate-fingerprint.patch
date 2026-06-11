@@ -8,7 +8,7 @@ DTLS certificate fingerprint without parsing the PEM string. Includes
 Android JNI and iOS/macOS ObjC bindings.
 
 diff --git a/rtc_base/rtc_certificate.cc b/rtc_base/rtc_certificate.cc
-index 1b89b76b0e..b818fe76c2 100644
+index 1b89b76b0ec2d242c7b559cf299af2b568a23179..b818fe76c2751582a6421233ce051b49b35b537c 100644
 --- a/rtc_base/rtc_certificate.cc
 +++ b/rtc_base/rtc_certificate.cc
 @@ -17,6 +17,7 @@
@@ -32,16 +32,14 @@ index 1b89b76b0e..b818fe76c2 100644
  
  scoped_refptr<RTCCertificate> RTCCertificate::FromPEM(
 diff --git a/rtc_base/rtc_certificate.h b/rtc_base/rtc_certificate.h
-index 8eca23bc0d..be71bbcdd9 100644
+index 8eca23bc0db26e10a633d5aa52f0f87da54cc0d6..d2f6a4b46751890cc40a42f432f1e873a942958b 100644
 --- a/rtc_base/rtc_certificate.h
 +++ b/rtc_base/rtc_certificate.h
-@@ -34,15 +34,23 @@ namespace webrtc {
- class RTCCertificatePEM {
+@@ -35,14 +35,22 @@ class RTCCertificatePEM {
   public:
    RTCCertificatePEM(absl::string_view private_key,
--                    absl::string_view certificate)
+                     absl::string_view certificate)
 -      : private_key_(private_key), certificate_(certificate) {}
-+                    absl::string_view certificate)
 +      : RTCCertificatePEM(private_key, certificate, "") {}
 +  RTCCertificatePEM(absl::string_view private_key,
 +                    absl::string_view certificate,
@@ -49,11 +47,11 @@ index 8eca23bc0d..be71bbcdd9 100644
 +      : private_key_(private_key),
 +        certificate_(certificate),
 +        fingerprint_(fingerprint) {}
-
+ 
    const std::string& private_key() const { return private_key_; }
    const std::string& certificate() const { return certificate_; }
 +  const std::string& fingerprint() const { return fingerprint_; }
-
+ 
   private:
    std::string private_key_;
    std::string certificate_;
@@ -62,7 +60,7 @@ index 8eca23bc0d..be71bbcdd9 100644
  
  // A thin abstraction layer between "lower level crypto stuff" like
 diff --git a/sdk/android/api/org/webrtc/RtcCertificatePem.java b/sdk/android/api/org/webrtc/RtcCertificatePem.java
-index 6070135b3e..ab7a07a516 100644
+index 6070135b3e12f27ef753596b45f9ce9ddf9415f0..ab7a07a5169aed41bac29a05732b8fee237e1ba2 100644
 --- a/sdk/android/api/org/webrtc/RtcCertificatePem.java
 +++ b/sdk/android/api/org/webrtc/RtcCertificatePem.java
 @@ -20,14 +20,17 @@ public class RtcCertificatePem {
@@ -97,7 +95,7 @@ index 6070135b3e..ab7a07a516 100644
     * Generate a new RtcCertificatePem with the default settings of KeyType = ECDSA and
     * expires = 30 days.
 diff --git a/sdk/android/src/jni/pc/rtc_certificate.cc b/sdk/android/src/jni/pc/rtc_certificate.cc
-index dffe8ea356..7879b2a5d3 100644
+index dffe8ea35658fb365b6dc0a0b423aacf4b8f9bb9..7879b2a5d3c03a851886f4507756039d48b9f3e1 100644
 --- a/sdk/android/src/jni/pc/rtc_certificate.cc
 +++ b/sdk/android/src/jni/pc/rtc_certificate.cc
 @@ -34,8 +34,11 @@ RTCCertificatePEM JavaToNativeRTCCertificatePEM(
@@ -134,7 +132,7 @@ index dffe8ea356..7879b2a5d3 100644
  
  }  // namespace jni
 diff --git a/sdk/objc/api/peerconnection/RTCCertificate.h b/sdk/objc/api/peerconnection/RTCCertificate.h
-index 343eb24d0d..8e25810e1b 100644
+index 343eb24d0d3c42f859107876bda17dc92d8e2580..8e25810e1b9f1835d6b585a7cc4d611e6a0aaf6b 100644
 --- a/sdk/objc/api/peerconnection/RTCCertificate.h
 +++ b/sdk/objc/api/peerconnection/RTCCertificate.h
 @@ -23,12 +23,16 @@ RTC_OBJC_EXPORT
@@ -155,10 +153,10 @@ index 343eb24d0d..8e25810e1b 100644
  
  - (instancetype)init NS_UNAVAILABLE;
 diff --git a/sdk/objc/api/peerconnection/RTCCertificate.mm b/sdk/objc/api/peerconnection/RTCCertificate.mm
-index 51461e92f8..106bb0274b 100644
+index 51461e92f8add100f83e5e36a1a0badafbe8573b..106bb0274ba2a7188223dd68d6514119b32b1270 100644
 --- a/sdk/objc/api/peerconnection/RTCCertificate.mm
 +++ b/sdk/objc/api/peerconnection/RTCCertificate.mm
-@@ -20,20 +20,24 @@
+@@ -20,20 +20,24 @@ @implementation RTC_OBJC_TYPE (RTCCertificate)
  
  @synthesize private_key = _private_key;
  @synthesize certificate = _certificate;
@@ -185,7 +183,7 @@ index 51461e92f8..106bb0274b 100644
    }
    return self;
  }
-@@ -64,12 +68,14 @@
+@@ -64,12 +68,14 @@ - (instancetype)initWithPrivateKey:(NSString *)private_key
    webrtc::RTCCertificatePEM pem = cc_certificate->ToPEM();
    std::string pem_private_key = pem.private_key();
    std::string pem_certificate = pem.certificate();
@@ -202,10 +200,10 @@ index 51461e92f8..106bb0274b 100644
  }
  
 diff --git a/sdk/objc/api/peerconnection/RTCConfiguration.mm b/sdk/objc/api/peerconnection/RTCConfiguration.mm
-index a882245200..78746ce982 100644
+index a8822452000e727338d3c188e222a8e7f3c9181f..78746ce982f6411d89cbdee9e0d03966f389f2dd 100644
 --- a/sdk/objc/api/peerconnection/RTCConfiguration.mm
 +++ b/sdk/objc/api/peerconnection/RTCConfiguration.mm
-@@ -91,7 +91,8 @@
+@@ -91,7 +91,8 @@ - (instancetype)initWithNativeConfiguration:
        webrtc::RTCCertificatePEM native_pem = native_cert->ToPEM();
        _certificate = [[RTC_OBJC_TYPE(RTCCertificate) alloc]
            initWithPrivateKey:@(native_pem.private_key().c_str())
@@ -215,7 +213,7 @@ index a882245200..78746ce982 100644
      }
      _iceTransportPolicy =
          [[self class] transportPolicyForTransportsType:config.type];
-@@ -246,8 +247,9 @@
+@@ -246,8 +247,9 @@ - (NSString *)description {
      RTC_LOG(LS_INFO) << "Have configured cert - using it.";
      std::string pem_private_key = [[_certificate private_key] UTF8String];
      std::string pem_certificate = [[_certificate certificate] UTF8String];

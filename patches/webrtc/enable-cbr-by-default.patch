@@ -7,7 +7,7 @@ Add cbr=1 to the default Opus SDP format parameters so that constant
 bitrate encoding is used out of the box.
 
 diff --git a/modules/audio_coding/codecs/opus/audio_encoder_opus.cc b/modules/audio_coding/codecs/opus/audio_encoder_opus.cc
-index c3c0f31ab1..e1c5d3a8d3 100644
+index c3c0f31ab121436d70a5e9d0e507d09426b6f0b7..e1c5d3a8d32b3baee7676b022e73afb39f5d6020 100644
 --- a/modules/audio_coding/codecs/opus/audio_encoder_opus.cc
 +++ b/modules/audio_coding/codecs/opus/audio_encoder_opus.cc
 @@ -222,10 +222,11 @@ int GetMultipliedBitrate(int bitrate, const std::vector<float>& multipliers) {

@@ -9,7 +9,7 @@ packet. Sending it only on key frames or when changed allows observers to
 infer device orientation from packet patterns.
 
 diff --git a/modules/rtp_rtcp/source/rtp_sender_video.cc b/modules/rtp_rtcp/source/rtp_sender_video.cc
-index 945214e552..488aa63a32 100644
+index 945214e552b64aae6ab1c60f0c419cb1b0621d84..488aa63a32bc7f1a0ab41b3384b75033fd20300d 100644
 --- a/modules/rtp_rtcp/source/rtp_sender_video.cc
 +++ b/modules/rtp_rtcp/source/rtp_sender_video.cc
 @@ -383,10 +383,7 @@ void RTPSenderVideo::AddRtpHeaderExtensions(const RTPVideoHeader& video_header,

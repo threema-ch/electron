@@ -7,7 +7,7 @@ Disable audio codecs not required by Threema: L16 (raw PCM), PCMU, PCMA
 (G.711), and G.722. Only Opus is retained.
 
 diff --git a/api/audio_codecs/L16/audio_decoder_L16.cc b/api/audio_codecs/L16/audio_decoder_L16.cc
-index e6e1b243b1..129cadad10 100644
+index e6e1b243b10b3027006043236b157411adbae01a..129cadad10fccf8223fc7f4492d90c513680da71 100644
 --- a/api/audio_codecs/L16/audio_decoder_L16.cc
 +++ b/api/audio_codecs/L16/audio_decoder_L16.cc
 @@ -38,7 +38,7 @@ std::optional<AudioDecoderL16::Config> AudioDecoderL16::SdpToConfig(
@@ -30,7 +30,7 @@ index e6e1b243b1..129cadad10 100644
  
  }  // namespace webrtc
 diff --git a/api/audio_codecs/L16/audio_encoder_L16.cc b/api/audio_codecs/L16/audio_encoder_L16.cc
-index 71372bd450..cca4df5728 100644
+index 71372bd450946f445df3aa1112a7b992432f56a1..cca4df572851c23e3238b4f3532723e00372aaad 100644
 --- a/api/audio_codecs/L16/audio_encoder_L16.cc
 +++ b/api/audio_codecs/L16/audio_encoder_L16.cc
 @@ -54,7 +54,7 @@ std::optional<AudioEncoderL16::Config> AudioEncoderL16::SdpToConfig(
@@ -61,7 +61,7 @@ index 71372bd450..cca4df5728 100644
  
  }  // namespace webrtc
 diff --git a/api/audio_codecs/builtin_audio_decoder_factory.cc b/api/audio_codecs/builtin_audio_decoder_factory.cc
-index c8d5800587..2850a0a5e0 100644
+index c8d5800587a569920a9ee9ca130ffc954f6b5f36..2850a0a5e0056f74ee2d5f8e9285485051363d5b 100644
 --- a/api/audio_codecs/builtin_audio_decoder_factory.cc
 +++ b/api/audio_codecs/builtin_audio_decoder_factory.cc
 @@ -14,19 +14,14 @@
@@ -101,7 +101,7 @@ index c8d5800587..2850a0a5e0 100644
  
  }  // namespace webrtc
 diff --git a/api/audio_codecs/builtin_audio_encoder_factory.cc b/api/audio_codecs/builtin_audio_encoder_factory.cc
-index 4d63804da9..16532c1c2e 100644
+index 4d63804da90eb797e32feb79cb1c11fd01aa98ff..16532c1c2e8a0be0ce6a3dd0a5124591784f378a 100644
 --- a/api/audio_codecs/builtin_audio_encoder_factory.cc
 +++ b/api/audio_codecs/builtin_audio_encoder_factory.cc
 @@ -14,20 +14,15 @@
@@ -142,7 +142,7 @@ index 4d63804da9..16532c1c2e 100644
  
  }  // namespace webrtc
 diff --git a/api/audio_codecs/g711/audio_decoder_g711.cc b/api/audio_codecs/g711/audio_decoder_g711.cc
-index 400a27a17a..ab0ed9bd54 100644
+index 400a27a17aac1b79ff289a44f212529c8d4d5741..ab0ed9bd545470b00ff3252a46baadeb216b91d9 100644
 --- a/api/audio_codecs/g711/audio_decoder_g711.cc
 +++ b/api/audio_codecs/g711/audio_decoder_g711.cc
 @@ -47,9 +47,7 @@ std::optional<AudioDecoderG711::Config> AudioDecoderG711::SdpToConfig(
@@ -174,7 +174,7 @@ index 400a27a17a..ab0ed9bd54 100644
  
  }  // namespace webrtc
 diff --git a/api/audio_codecs/g711/audio_encoder_g711.cc b/api/audio_codecs/g711/audio_encoder_g711.cc
-index af8f1eaf80..b118e49d7b 100644
+index af8f1eaf805cc8b8e886f389628b3ec9435c3e93..b118e49d7b86208e1a92ef66cc5c1449168b4ffd 100644
 --- a/api/audio_codecs/g711/audio_encoder_g711.cc
 +++ b/api/audio_codecs/g711/audio_encoder_g711.cc
 @@ -59,9 +59,7 @@ std::optional<AudioEncoderG711::Config> AudioEncoderG711::SdpToConfig(
@@ -217,7 +217,7 @@ index af8f1eaf80..b118e49d7b 100644
  
  }  // namespace webrtc
 diff --git a/api/audio_codecs/g722/audio_decoder_g722.cc b/api/audio_codecs/g722/audio_decoder_g722.cc
-index f948a21da0..003e5a6a32 100644
+index f948a21da0649e57d80ff5dd3dd578ac18b164d5..003e5a6a32d742ab5f0bfd03337cad2a4fc912ca 100644
 --- a/api/audio_codecs/g722/audio_decoder_g722.cc
 +++ b/api/audio_codecs/g722/audio_decoder_g722.cc
 @@ -37,7 +37,7 @@ std::optional<AudioDecoderG722::Config> AudioDecoderG722::SdpToConfig(
@@ -247,7 +247,7 @@ index f948a21da0..003e5a6a32 100644
  
  }  // namespace webrtc
 diff --git a/api/audio_codecs/g722/audio_encoder_g722.cc b/api/audio_codecs/g722/audio_encoder_g722.cc
-index d1bbb2e21b..a83c8865db 100644
+index d1bbb2e21babdb25a34f0fad36f360688679691b..a83c8865db19b244ef958b51cc4dd82f60cb41c3 100644
 --- a/api/audio_codecs/g722/audio_encoder_g722.cc
 +++ b/api/audio_codecs/g722/audio_encoder_g722.cc
 @@ -56,9 +56,7 @@ std::optional<AudioEncoderG722Config> AudioEncoderG722::SdpToConfig(

@@ -8,7 +8,7 @@ implement it in FileVideoCapturer, ScreenCapturerAndroid, and
 CameraCapturer.
 
 diff --git a/sdk/android/api/org/webrtc/FileVideoCapturer.java b/sdk/android/api/org/webrtc/FileVideoCapturer.java
-index 408d8b55fc..2cddd30a2a 100644
+index 408d8b55fc6cca1ac47e5820645e069f9b3d1204..2cddd30a2ab727ee7540c144a7d200179a4446ba 100644
 --- a/sdk/android/api/org/webrtc/FileVideoCapturer.java
 +++ b/sdk/android/api/org/webrtc/FileVideoCapturer.java
 @@ -141,6 +141,7 @@ public class FileVideoCapturer implements VideoCapturer {
@@ -46,7 +46,7 @@ index 408d8b55fc..2cddd30a2a 100644
    public void dispose() {
      videoReader.close();
 diff --git a/sdk/android/api/org/webrtc/ScreenCapturerAndroid.java b/sdk/android/api/org/webrtc/ScreenCapturerAndroid.java
-index 08b03bd684..2855b17251 100644
+index 08b03bd684e1c9d319f027ebe7df392d316adeeb..2855b1725168e85d26c41a475f7d137a7abd1870 100644
 --- a/sdk/android/api/org/webrtc/ScreenCapturerAndroid.java
 +++ b/sdk/android/api/org/webrtc/ScreenCapturerAndroid.java
 @@ -217,6 +217,12 @@ public class ScreenCapturerAndroid implements VideoCapturer, VideoSink {
@@ -63,7 +63,7 @@ index 08b03bd684..2855b17251 100644
      return numCapturedFrames;
    }
 diff --git a/sdk/android/api/org/webrtc/VideoCapturer.java b/sdk/android/api/org/webrtc/VideoCapturer.java
-index 67eb7ab086..5425657df0 100644
+index 67eb7ab086204e4d4ffc04460a1d757e2b4c3912..5425657df07c8225790d23da309e95bca47a23a8 100644
 --- a/sdk/android/api/org/webrtc/VideoCapturer.java
 +++ b/sdk/android/api/org/webrtc/VideoCapturer.java
 @@ -41,6 +41,11 @@ public interface VideoCapturer {
@@ -79,7 +79,7 @@ index 67eb7ab086..5425657df0 100644
     * Perform any final cleanup here. No more capturing will be done after this call.
     */
 diff --git a/sdk/android/src/java/org/webrtc/CameraCapturer.java b/sdk/android/src/java/org/webrtc/CameraCapturer.java
-index 1922a529e2..2375fba0e4 100644
+index 1922a529e25a218500db63da414a564d9958d365..2375fba0e4f080f86aa4716ef56851b5db54410c 100644
 --- a/sdk/android/src/java/org/webrtc/CameraCapturer.java
 +++ b/sdk/android/src/java/org/webrtc/CameraCapturer.java
 @@ -312,6 +312,13 @@ abstract class CameraCapturer implements CameraVideoCapturer {

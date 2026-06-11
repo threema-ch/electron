@@ -8,7 +8,7 @@ AEAD_AES_128_GCM over older AES-CM suites. Remove conditional enable
 checks for GCM support.
 
 diff --git a/api/crypto/crypto_options.cc b/api/crypto/crypto_options.cc
-index 53c23e3c25..e34599e110 100644
+index 53c23e3c2582298f02c414cc279e15c2d50c75ba..e34599e1102508051c69af322168f6ef7300d501 100644
 --- a/api/crypto/crypto_options.cc
 +++ b/api/crypto/crypto_options.cc
 @@ -35,25 +35,21 @@ CryptoOptions CryptoOptions::NoGcm() {
@@ -48,7 +48,7 @@ index 53c23e3c25..e34599e110 100644
    return crypto_suites;
  }
 diff --git a/rtc_base/openssl_stream_adapter.cc b/rtc_base/openssl_stream_adapter.cc
-index d4a1e7c1a4..571aa15734 100644
+index adfebb0c7405e3a422b505927a504493fdb55583..4f3a0e0efa150b2cdfa0d36fc914f1c0f1babe17 100644
 --- a/rtc_base/openssl_stream_adapter.cc
 +++ b/rtc_base/openssl_stream_adapter.cc
 @@ -83,10 +83,9 @@ struct SrtpCipherMapEntry {

@@ -8,7 +8,7 @@ CHACHA20-POLY1305, AES256-GCM, and AES128-GCM. Limit ephemeral key exchange
 to X25519, X25519-MLKEM768, SECP256R1, SECP384R1, and SECP521R1.
 
 diff --git a/rtc_base/openssl_stream_adapter.cc b/rtc_base/openssl_stream_adapter.cc
-index d4a1e7c1a4..468f0031cc 100644
+index d4a1e7c1a4b3e4584a6dc6392a1d66d32d9bd462..adfebb0c7405e3a422b505927a504493fdb55583 100644
 --- a/rtc_base/openssl_stream_adapter.cc
 +++ b/rtc_base/openssl_stream_adapter.cc
 @@ -111,11 +111,7 @@ uint16_t GetMaxVersion(SSLMode ssl_mode, SSLProtocolVersion version) {
@@ -153,7 +153,7 @@ index d4a1e7c1a4..468f0031cc 100644
  
  bool OpenSSLStreamAdapter::SetSslGroupIds(const std::vector<uint16_t>& groups) {
 diff --git a/rtc_base/ssl_stream_adapter.cc b/rtc_base/ssl_stream_adapter.cc
-index d02318bc68..08838be867 100644
+index d02318bc684132aee77b5d62821d4bb5f6df3030..08838be86784bb25e1a834a40d23289c13bf2681 100644
 --- a/rtc_base/ssl_stream_adapter.cc
 +++ b/rtc_base/ssl_stream_adapter.cc
 @@ -117,25 +117,9 @@ SSLStreamAdapter::GetEphemeralKeyExchangeCipherGroupName(uint16_t group_id) {

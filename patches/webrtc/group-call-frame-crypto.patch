@@ -9,7 +9,7 @@ Includes the threema_group_call_frame_transformer C++ library, a bundled
 BLAKE2b reference implementation, and Android JNI / iOS ObjC bindings.
 
 diff --git a/pc/BUILD.gn b/pc/BUILD.gn
-index f6a1f3767a..bbff9be0b3 100644
+index f6a1f3767a3f3c31f72ed94311c5a40a6b950cba..bbff9be0b3cdc91a74978a944cfd923a81f2067c 100644
 --- a/pc/BUILD.gn
 +++ b/pc/BUILD.gn
 @@ -1385,6 +1385,26 @@ rtc_library("peer_connection") {
@@ -41,7 +41,7 @@ index f6a1f3767a..bbff9be0b3 100644
      ":*",
 diff --git a/pc/threema_group_call_frame_transformer.cc b/pc/threema_group_call_frame_transformer.cc
 new file mode 100644
-index 0000000000..84f8d3849a
+index 0000000000000000000000000000000000000000..84f8d3849ac9fdd62d5324b8b3269912ed2784a0
 --- /dev/null
 +++ b/pc/threema_group_call_frame_transformer.cc
 @@ -0,0 +1,828 @@
@@ -875,7 +875,7 @@ index 0000000000..84f8d3849a
 +}  // namespace threema
 diff --git a/pc/threema_group_call_frame_transformer.h b/pc/threema_group_call_frame_transformer.h
 new file mode 100644
-index 0000000000..c825bc14f6
+index 0000000000000000000000000000000000000000..c825bc14f65e5b6b27a4a4b64d2773a78da515d6
 --- /dev/null
 +++ b/pc/threema_group_call_frame_transformer.h
 @@ -0,0 +1,234 @@
@@ -1115,14 +1115,14 @@ index 0000000000..c825bc14f6
 +#endif  // PC_THREEMA_GROUP_CALL_FRAME_TRANSFORMER_H_
 diff --git a/rtc_base/third_party/threema-blake2b/.clang-format b/rtc_base/third_party/threema-blake2b/.clang-format
 new file mode 100644
-index 0000000000..e3845288a2
+index 0000000000000000000000000000000000000000..e3845288a2aece185aa94e88e303e0134efde368
 --- /dev/null
 +++ b/rtc_base/third_party/threema-blake2b/.clang-format
 @@ -0,0 +1 @@
 +DisableFormat: true
 diff --git a/rtc_base/third_party/threema-blake2b/BUILD.gn b/rtc_base/third_party/threema-blake2b/BUILD.gn
 new file mode 100644
-index 0000000000..4af223855b
+index 0000000000000000000000000000000000000000..4af223855bfd3580a61fd59f925decc57d85b4c0
 --- /dev/null
 +++ b/rtc_base/third_party/threema-blake2b/BUILD.gn
 @@ -0,0 +1,18 @@
@@ -1146,7 +1146,7 @@ index 0000000000..4af223855b
 +}
 diff --git a/rtc_base/third_party/threema-blake2b/blake2b.c b/rtc_base/third_party/threema-blake2b/blake2b.c
 new file mode 100644
-index 0000000000..f820a97910
+index 0000000000000000000000000000000000000000..f820a97910cd05b34c50688e399b72eb19f7fad9
 --- /dev/null
 +++ b/rtc_base/third_party/threema-blake2b/blake2b.c
 @@ -0,0 +1,58 @@
@@ -1210,7 +1210,7 @@ index 0000000000..f820a97910
 +}
 diff --git a/rtc_base/third_party/threema-blake2b/blake2b.h b/rtc_base/third_party/threema-blake2b/blake2b.h
 new file mode 100644
-index 0000000000..328ae4f24c
+index 0000000000000000000000000000000000000000..328ae4f24cbcdb85fe070a7346676f8381714cea
 --- /dev/null
 +++ b/rtc_base/third_party/threema-blake2b/blake2b.h
 @@ -0,0 +1,30 @@
@@ -1246,7 +1246,7 @@ index 0000000000..328ae4f24c
 +#endif
 diff --git a/rtc_base/third_party/threema-blake2b/ref/blake2-impl.h b/rtc_base/third_party/threema-blake2b/ref/blake2-impl.h
 new file mode 100644
-index 0000000000..c1df82e0c9
+index 0000000000000000000000000000000000000000..c1df82e0c95dc8e57ee98342f5328ca57407816d
 --- /dev/null
 +++ b/rtc_base/third_party/threema-blake2b/ref/blake2-impl.h
 @@ -0,0 +1,160 @@
@@ -1412,7 +1412,7 @@ index 0000000000..c1df82e0c9
 +#endif
 diff --git a/rtc_base/third_party/threema-blake2b/ref/blake2.h b/rtc_base/third_party/threema-blake2b/ref/blake2.h
 new file mode 100644
-index 0000000000..ca390305e6
+index 0000000000000000000000000000000000000000..ca390305e60443931e155ad08c7eca86fc665b01
 --- /dev/null
 +++ b/rtc_base/third_party/threema-blake2b/ref/blake2.h
 @@ -0,0 +1,195 @@
@@ -1613,7 +1613,7 @@ index 0000000000..ca390305e6
 +#endif
 diff --git a/rtc_base/third_party/threema-blake2b/ref/blake2b-ref.c b/rtc_base/third_party/threema-blake2b/ref/blake2b-ref.c
 new file mode 100644
-index 0000000000..cd38b1ba00
+index 0000000000000000000000000000000000000000..cd38b1ba0083c4d8125b2f27e03498376946dc37
 --- /dev/null
 +++ b/rtc_base/third_party/threema-blake2b/ref/blake2b-ref.c
 @@ -0,0 +1,379 @@
@@ -1997,7 +1997,7 @@ index 0000000000..cd38b1ba00
 +}
 +#endif
 diff --git a/sdk/BUILD.gn b/sdk/BUILD.gn
-index 839549ac95..ae13c84b9e 100644
+index 839549ac952b08a0cd9e9eac6d239f48e234218b..ae13c84b9ea49e66532d71529ff394727863b6c3 100644
 --- a/sdk/BUILD.gn
 +++ b/sdk/BUILD.gn
 @@ -1087,6 +1087,15 @@ if (is_ios || is_mac) {
@@ -2061,7 +2061,7 @@ index 839549ac95..ae13c84b9e 100644
            "objc/api/video_codec/RTCVideoDecoderVP8.h",
            "objc/api/video_codec/RTCVideoDecoderVP9.h",
 diff --git a/sdk/android/BUILD.gn b/sdk/android/BUILD.gn
-index b80bf00b5e..33c680b290 100644
+index b80bf00b5e51d5b13bc2975c997bfb4ad826eb0d..33c680b29015f19265258966efcb02016eef094c 100644
 --- a/sdk/android/BUILD.gn
 +++ b/sdk/android/BUILD.gn
 @@ -330,6 +330,7 @@ if (is_android) {
@@ -2115,7 +2115,7 @@ index b80bf00b5e..33c680b290 100644
      namespace = "webrtc::jni"
 diff --git a/sdk/android/api/org/webrtc/ThreemaGroupCallFrameCryptoContext.java b/sdk/android/api/org/webrtc/ThreemaGroupCallFrameCryptoContext.java
 new file mode 100644
-index 0000000000..a4ba76feaa
+index 0000000000000000000000000000000000000000..7d2ddcdcfd84a89c3882f27be90646ac83592de7
 --- /dev/null
 +++ b/sdk/android/api/org/webrtc/ThreemaGroupCallFrameCryptoContext.java
 @@ -0,0 +1,198 @@
@@ -2319,7 +2319,7 @@ index 0000000000..a4ba76feaa
 +}
 diff --git a/sdk/android/src/jni/pc/threema_group_call_frame_crypto_context.cc b/sdk/android/src/jni/pc/threema_group_call_frame_crypto_context.cc
 new file mode 100644
-index 0000000000..e3f7d519da
+index 0000000000000000000000000000000000000000..e3f7d519da60f386e549ac49395623159cd7cb3a
 --- /dev/null
 +++ b/sdk/android/src/jni/pc/threema_group_call_frame_crypto_context.cc
 @@ -0,0 +1,139 @@
@@ -2464,7 +2464,7 @@ index 0000000000..e3f7d519da
 +}  // namespace webrtc
 diff --git a/sdk/android/src/jni/pc/threema_group_call_frame_crypto_context.h b/sdk/android/src/jni/pc/threema_group_call_frame_crypto_context.h
 new file mode 100644
-index 0000000000..5d4b0e60a7
+index 0000000000000000000000000000000000000000..5d4b0e60a785ce01a6f2b459989f4131bd1400d9
 --- /dev/null
 +++ b/sdk/android/src/jni/pc/threema_group_call_frame_crypto_context.h
 @@ -0,0 +1,21 @@
@@ -2491,7 +2491,7 @@ index 0000000000..5d4b0e60a7
 +#endif  // SDK_ANDROID_SRC_JNI_PC_THREEMA_GROUP_CALL_FRAME_CRYPTO_CONTEXT_H_
 diff --git a/sdk/objc/api/peerconnection/ThreemaGroupCallFrameCryptoContext+Private.h b/sdk/objc/api/peerconnection/ThreemaGroupCallFrameCryptoContext+Private.h
 new file mode 100644
-index 0000000000..a290032d3c
+index 0000000000000000000000000000000000000000..a290032d3c8ced1c4e008a1f72b67336dd7a897e
 --- /dev/null
 +++ b/sdk/objc/api/peerconnection/ThreemaGroupCallFrameCryptoContext+Private.h
 @@ -0,0 +1,16 @@
@@ -2514,7 +2514,7 @@ index 0000000000..a290032d3c
 \ No newline at end of file
 diff --git a/sdk/objc/api/peerconnection/ThreemaGroupCallFrameCryptoContext.h b/sdk/objc/api/peerconnection/ThreemaGroupCallFrameCryptoContext.h
 new file mode 100644
-index 0000000000..8f14f8acb5
+index 0000000000000000000000000000000000000000..8f14f8acb50ca3db1adc590a75fa6584bb04d58c
 --- /dev/null
 +++ b/sdk/objc/api/peerconnection/ThreemaGroupCallFrameCryptoContext.h
 @@ -0,0 +1,76 @@
@@ -2597,7 +2597,7 @@ index 0000000000..8f14f8acb5
 \ No newline at end of file
 diff --git a/sdk/objc/api/peerconnection/ThreemaGroupCallFrameCryptoContext.mm b/sdk/objc/api/peerconnection/ThreemaGroupCallFrameCryptoContext.mm
 new file mode 100644
-index 0000000000..57271fe2b5
+index 0000000000000000000000000000000000000000..57271fe2b5d402a4063a60907942552cd2299f0c
 --- /dev/null
 +++ b/sdk/objc/api/peerconnection/ThreemaGroupCallFrameCryptoContext.mm
 @@ -0,0 +1,124 @@
@@ -2728,7 +2728,7 @@ index 0000000000..57271fe2b5
 \ No newline at end of file
 diff --git a/sdk/objc/api/peerconnection/ThreemaGroupCallFrameCryptoDecryptor+Private.h b/sdk/objc/api/peerconnection/ThreemaGroupCallFrameCryptoDecryptor+Private.h
 new file mode 100644
-index 0000000000..6b5ba7fa79
+index 0000000000000000000000000000000000000000..6b5ba7fa795eff51d5fe2eda7c4c0e0ef4951028
 --- /dev/null
 +++ b/sdk/objc/api/peerconnection/ThreemaGroupCallFrameCryptoDecryptor+Private.h
 @@ -0,0 +1,13 @@
@@ -2748,7 +2748,7 @@ index 0000000000..6b5ba7fa79
 \ No newline at end of file
 diff --git a/sdk/objc/api/peerconnection/ThreemaGroupCallFrameCryptoDecryptor.h b/sdk/objc/api/peerconnection/ThreemaGroupCallFrameCryptoDecryptor.h
 new file mode 100644
-index 0000000000..c464ae4664
+index 0000000000000000000000000000000000000000..c464ae46644de5d9ee370bc1f6305d3c9b13ee99
 --- /dev/null
 +++ b/sdk/objc/api/peerconnection/ThreemaGroupCallFrameCryptoDecryptor.h
 @@ -0,0 +1,50 @@
@@ -2805,7 +2805,7 @@ index 0000000000..c464ae4664
 \ No newline at end of file
 diff --git a/sdk/objc/api/peerconnection/ThreemaGroupCallFrameCryptoDecryptor.mm b/sdk/objc/api/peerconnection/ThreemaGroupCallFrameCryptoDecryptor.mm
 new file mode 100644
-index 0000000000..636aee6d68
+index 0000000000000000000000000000000000000000..636aee6d68441274f0a6b0c9310d00de92a20eef
 --- /dev/null
 +++ b/sdk/objc/api/peerconnection/ThreemaGroupCallFrameCryptoDecryptor.mm
 @@ -0,0 +1,84 @@
@@ -2896,7 +2896,7 @@ index 0000000000..636aee6d68
 \ No newline at end of file
 diff --git a/sdk/objc/api/peerconnection/ThreemaGroupCallFrameCryptoEncryptor+Private.h b/sdk/objc/api/peerconnection/ThreemaGroupCallFrameCryptoEncryptor+Private.h
 new file mode 100644
-index 0000000000..493351fb57
+index 0000000000000000000000000000000000000000..493351fb57cb1c19b37cb1c146a4b0e1aba4d11f
 --- /dev/null
 +++ b/sdk/objc/api/peerconnection/ThreemaGroupCallFrameCryptoEncryptor+Private.h
 @@ -0,0 +1,13 @@
@@ -2916,7 +2916,7 @@ index 0000000000..493351fb57
 \ No newline at end of file
 diff --git a/sdk/objc/api/peerconnection/ThreemaGroupCallFrameCryptoEncryptor.h b/sdk/objc/api/peerconnection/ThreemaGroupCallFrameCryptoEncryptor.h
 new file mode 100644
-index 0000000000..db1ede9eba
+index 0000000000000000000000000000000000000000..db1ede9eba6ffa70effd85cbbdab0a5e55842d8e
 --- /dev/null
 +++ b/sdk/objc/api/peerconnection/ThreemaGroupCallFrameCryptoEncryptor.h
 @@ -0,0 +1,43 @@
@@ -2966,7 +2966,7 @@ index 0000000000..db1ede9eba
 \ No newline at end of file
 diff --git a/sdk/objc/api/peerconnection/ThreemaGroupCallFrameCryptoEncryptor.mm b/sdk/objc/api/peerconnection/ThreemaGroupCallFrameCryptoEncryptor.mm
 new file mode 100644
-index 0000000000..3a81eebf7f
+index 0000000000000000000000000000000000000000..3a81eebf7f6b1e305493f15d6b2f07fba32d4384
 --- /dev/null
 +++ b/sdk/objc/api/peerconnection/ThreemaGroupCallFrameCryptoEncryptor.mm
 @@ -0,0 +1,63 @@
