@@ -75,6 +75,7 @@ env:
   # Keep in sync with .github/actions/build-image-sha/action.yml
   BUILD_IMAGE_SHA: daad061f4b99a0ae1c841be4aa09188280a9c8a4
   ELECTRON_OUT_DIR: Default
+  ELECTRON_RBE_JWT: ${{ secrets.ELECTRON_RBE_JWT }}
 
 # ──────────────────────────────────────────────────────────────────────────────
 # LINUX x64
@@ -131,7 +132,7 @@ jobs:
         e init -f --root=$(pwd) --out=Default \
           "$GN_BUILD_TYPE" --import "$GN_BUILD_TYPE" \
           --target-cpu "$TARGET_ARCH" \
-          --remote-build none
+          --remote-build siso
 
     - name: Run Electron-only hooks
       run: |
@@ -224,7 +225,7 @@ jobs:
         e init -f --root=$(pwd) --out=Default \
           "$GN_BUILD_TYPE" --import "$GN_BUILD_TYPE" \
           --target-cpu "$TARGET_ARCH" \
-          --remote-build none
+          --remote-build siso
 
     - name: Run Electron-only hooks
       run: |
@@ -359,7 +360,7 @@ jobs:
         e init -f --root=$(pwd) --out=Default \
           "$GN_BUILD_TYPE" --import "$GN_BUILD_TYPE" \
           --target-cpu "$TARGET_ARCH" \
-          --remote-build none
+          --remote-build siso
 
     - name: Run Electron-only hooks
       run: |
@@ -482,7 +483,7 @@ jobs:
         e init -f --root=$(pwd) --out=Default \
           "$GN_BUILD_TYPE" --import "$GN_BUILD_TYPE" \
           --target-cpu "$TARGET_ARCH" \
-          --remote-build none
+          --remote-build siso
 
     - name: Run Electron-only hooks
       run: |
@@ -521,12 +522,21 @@ jobs:
           src/out/Default/chromedriver.zip
 
 # ──────────────────────────────────────────────────────────────────────────────
+# BUILD SISO (Windows)  — cross-compiled patched siso.exe for Windows CI
+# ──────────────────────────────────────────────────────────────────────────────
+  build-siso-windows:
+    name: 'Build Siso (Windows)'
+    if: ${{ github.repository == 'threema-ch/electron' && github.event_name == 'workflow_dispatch' && inputs.build-windows }}
+    uses: ./.github/workflows/pipeline-segment-build-siso-windows.yml
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Windows x64  (native Windows runner, not cross-compiled from Linux)
 # ──────────────────────────────────────────────────────────────────────────────
   windows-x64:
     name: 'Windows / x64'
     # workflow_dispatch only — no Windows runner on push until runner is available
     if: ${{ github.repository == 'threema-ch/electron' && github.event_name == 'workflow_dispatch' && inputs.build-windows }}
+    needs: [build-siso-windows]
     runs-on: [self-hosted, Windows, x64]
     timeout-minutes: 1440  # 12 hours — first build takes ~10h locally without RBE
     env:
@@ -590,7 +600,7 @@ jobs:
         e init -f --root=$(pwd) --out=Default \
           "$GN_BUILD_TYPE" --import "$GN_BUILD_TYPE" \
           --target-cpu "$TARGET_ARCH" \
-          --remote-build none
+          --remote-build siso
 
     - name: Run Electron-only hooks
       run: |
@@ -605,6 +615,22 @@ jobs:
 
     - name: Install yarn dependencies
       uses: ./src/electron/.github/actions/install-dependencies
+
+    - name: Download custom siso binary (Windows)
+      uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+      with:
+        name: siso-windows-amd64
+        path: ${{ runner.temp }}/siso
+
+    - name: Set SISO_PATH (Windows)
+      run: |
+        SISO_BIN="${RUNNER_TEMP}/siso/siso.exe"
+        if [ ! -f "$SISO_BIN" ]; then
+          echo "error: expected siso binary at $SISO_BIN" >&2
+          exit 1
+        fi
+        echo "SISO_PATH=$SISO_BIN" >> "$GITHUB_ENV"
+        echo "Using custom siso binary at $SISO_BIN"
 
     - name: Build Electron (Windows)
       shell: powershell
@@ -709,7 +735,7 @@ jobs:
         e init -f --root=$(pwd) --out=Default \
           "$GN_BUILD_TYPE" --import "$GN_BUILD_TYPE" \
           --target-cpu "$TARGET_ARCH" \
-          --remote-build none
+          --remote-build siso
 
     - name: Run Electron-only hooks
       run: |
