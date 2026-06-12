@@ -736,14 +736,6 @@ jobs:
 
 # ──────────────────────────────────────────────────────────────────────────────
 # PUBLISH — collects all platform artifacts and creates a GitHub Release
-#
-# Runs only on push to main or workflow_dispatch (not on threema/** branches).
-# Names artifacts to match @electron/get's expected format so Threema Desktop
-# can download them with ELECTRON_MIRROR pointing at this repo's releases.
-#
-# Configure Threema Desktop's electron-builder / @electron/get:
-#   ELECTRON_MIRROR=https://github.com/threema-ch/electron/releases/download/
-#   ELECTRON_CUSTOM_DIR=v{{ version }}-threema
 # ──────────────────────────────────────────────────────────────────────────────
   publish:
     name: 'Publish GitHub Release'
@@ -757,10 +749,7 @@ jobs:
       !contains(needs.*.result, 'failure') &&
       !contains(needs.*.result, 'cancelled') &&
       contains(needs.*.result, 'success') &&
-      (
-        github.event_name == 'workflow_dispatch' ||
-        (github.event_name == 'push' && github.ref == 'refs/heads/main')
-      )
+      github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: write  # required to create/update releases
