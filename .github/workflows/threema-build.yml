@@ -628,12 +628,19 @@ jobs:
           exit $LASTEXITCODE
         }
 
-    - name: Build Chromedriver (Windows)
+    - name: Build Chromedriver
       shell: powershell
       run: |
         $ErrorActionPreference = 'Continue'
         cd src
         e.cmd build --target electron:electron_chromedriver_zip
+
+    - name: Prepare node.lib
+      shell: powershell
+      run: |
+        # node.lib is electron.lib renamed — required by node-gyp / electron-rebuild
+        # on Windows to link native modules against Electron's Node.js API.
+        Copy-Item src\out\Default\electron.lib src\out\Default\node.lib
 
     - name: Upload dist artifacts
       if: always() && !cancelled()
@@ -643,6 +650,7 @@ jobs:
         path: |
           src/out/Default/dist.zip
           src/out/Default/chromedriver.zip
+          src/out/Default/node.lib
 
 # ──────────────────────────────────────────────────────────────────────────────
 # NODE HEADERS  (platform-independent, built from Linux x64)
@@ -841,6 +849,9 @@ jobs:
 
         rename artifacts/windows-x64/dist.zip        "electron-v${VERSION}-win32-x64.zip"
         rename artifacts/windows-x64/chromedriver.zip "chromedriver-v${VERSION}-win32-x64.zip"
+        # node.lib is Windows-only — consumed by node-gyp / electron-rebuild to
+        # link native modules. Published flat;
+        rename artifacts/windows-x64/node.lib         "node.lib"
 
         # Node headers — platform-independent, built by the node-headers job.
         rename artifacts/node-headers/node_headers.tar.gz \
@@ -859,7 +870,7 @@ jobs:
           existing=/dev/null
         fi
         # Strip stale entries for files we are about to re-upload, keep the rest.
-        built_files=$(ls *.zip *.tar.gz 2>/dev/null || true)
+        built_files=$(ls *.zip *.tar.gz *.lib 2>/dev/null || true)
         if [ -n "$built_files" ]; then
           grep -vF "$built_files" "$existing" > SHASUMS256.txt || true
           sha256sum $built_files >> SHASUMS256.txt
