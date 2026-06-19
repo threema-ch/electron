@@ -70,6 +70,16 @@ on:
         description: 'Threema patch-set version (e.g. 1). Increment when Threema patches change; reset to 1 when the base Electron version bumps. Combined with version to form the release tag v{version}-threema.{threema-patch}.'
         default: '1'
         required: false
+      rbe-jwt:
+        type: string
+        description: 'Electron RBE JWT token (obtain via `e d rbe print`). When provided, builds use the RBE cache. When omitted, builds run fully locally. Value is masked in logs immediately after use.'
+        default: ''
+        required: false
+      clean-build:
+        type: boolean
+        description: 'Remove out/Default before building (clean build). Disable for incremental builds on persistent runners.'
+        default: true
+        required: false
 
 defaults:
   run:
@@ -80,7 +90,6 @@ env:
   # Keep in sync with .github/actions/build-image-sha/action.yml
   BUILD_IMAGE_SHA: daad061f4b99a0ae1c841be4aa09188280a9c8a4
   ELECTRON_OUT_DIR: Default
-  ELECTRON_RBE_JWT: ${{ secrets.ELECTRON_RBE_JWT }}
 
 # ──────────────────────────────────────────────────────────────────────────────
 # LINUX x64
@@ -109,7 +118,23 @@ jobs:
         path: src/electron
         fetch-depth: 0
 
+    - name: Print workflow inputs
+      run: |
+        echo "::add-mask::${{ inputs.rbe-jwt }}"
+        echo "gn-build-type:     ${{ inputs.gn-build-type || 'testing' }}"
+        echo "version:           ${{ inputs.version || '(from git tag)' }}"
+        echo "threema-patch:     ${{ inputs.threema-patch }}"
+        echo "rbe-jwt:           ${{ inputs.rbe-jwt != '' && '(provided)' || '(not set — local build)' }}"
+        echo "clean-build:       ${{ inputs.clean-build }}"
+        echo "build-linux-x64:   ${{ inputs.build-linux-x64 }}"
+        echo "build-linux-arm64: ${{ inputs.build-linux-arm64 }}"
+        echo "build-macos-arm64: ${{ inputs.build-macos-arm64 }}"
+        echo "build-macos-x64:   ${{ inputs.build-macos-x64 }}"
+        echo "build-windows:     ${{ inputs.build-windows }}"
+        echo "build-node-headers:${{ inputs.build-node-headers }}"
+
     - name: Clean build output
+      if: ${{ inputs.clean-build }}
       # The runner workspace is persistent across jobs; remove any stale
       # out/Default from a previous run so e init starts from a clean slate.
       run: rm -rf src/out/Default 2>/dev/null || true
@@ -132,12 +157,23 @@ jobs:
         ELECTRON_USE_THREE_WAY_MERGE_FOR_PATCHES=1 \
           e d gclient sync --with_branch_heads --with_tags
 
+    - name: Configure build mode
+      run: |
+        if [ -n "${{ inputs.rbe-jwt }}" ]; then
+          TOKEN="${{ inputs.rbe-jwt }}"
+          echo "::add-mask::${TOKEN}"
+          echo "REMOTE_BUILD=siso" >> $GITHUB_ENV
+          echo "ELECTRON_RBE_JWT=${TOKEN}" >> $GITHUB_ENV
+        else
+          echo "REMOTE_BUILD=none" >> $GITHUB_ENV
+        fi
+
     - name: Init build configuration
       run: |
         e init -f --root=$(pwd) --out=Default \
           "$GN_BUILD_TYPE" --import "$GN_BUILD_TYPE" \
           --target-cpu "$TARGET_ARCH" \
-          --remote-build siso
+          --remote-build "$REMOTE_BUILD"
 
     - name: Override Electron version in GN args
       run: |
@@ -212,7 +248,23 @@ jobs:
         path: src/electron
         fetch-depth: 0
 
+    - name: Print workflow inputs
+      run: |
+        echo "::add-mask::${{ inputs.rbe-jwt }}"
+        echo "gn-build-type:     ${{ inputs.gn-build-type || 'testing' }}"
+        echo "version:           ${{ inputs.version || '(from git tag)' }}"
+        echo "threema-patch:     ${{ inputs.threema-patch }}"
+        echo "rbe-jwt:           ${{ inputs.rbe-jwt != '' && '(provided)' || '(not set — local build)' }}"
+        echo "clean-build:       ${{ inputs.clean-build }}"
+        echo "build-linux-x64:   ${{ inputs.build-linux-x64 }}"
+        echo "build-linux-arm64: ${{ inputs.build-linux-arm64 }}"
+        echo "build-macos-arm64: ${{ inputs.build-macos-arm64 }}"
+        echo "build-macos-x64:   ${{ inputs.build-macos-x64 }}"
+        echo "build-windows:     ${{ inputs.build-windows }}"
+        echo "build-node-headers:${{ inputs.build-node-headers }}"
+
     - name: Clean build output
+      if: ${{ inputs.clean-build }}
       # The runner workspace is persistent across jobs; remove any stale
       # out/Default from a previous run so e init starts from a clean slate.
       run: rm -rf src/out/Default 2>/dev/null || true
@@ -235,12 +287,23 @@ jobs:
         ELECTRON_USE_THREE_WAY_MERGE_FOR_PATCHES=1 \
           e d gclient sync --with_branch_heads --with_tags
 
+    - name: Configure build mode
+      run: |
+        if [ -n "${{ inputs.rbe-jwt }}" ]; then
+          TOKEN="${{ inputs.rbe-jwt }}"
+          echo "::add-mask::${TOKEN}"
+          echo "REMOTE_BUILD=siso" >> $GITHUB_ENV
+          echo "ELECTRON_RBE_JWT=${TOKEN}" >> $GITHUB_ENV
+        else
+          echo "REMOTE_BUILD=none" >> $GITHUB_ENV
+        fi
+
     - name: Init build configuration
       run: |
         e init -f --root=$(pwd) --out=Default \
           "$GN_BUILD_TYPE" --import "$GN_BUILD_TYPE" \
           --target-cpu "$TARGET_ARCH" \
-          --remote-build siso
+          --remote-build "$REMOTE_BUILD"
 
     - name: Override Electron version in GN args
       run: |
@@ -314,7 +377,23 @@ jobs:
         path: src/electron
         fetch-depth: 0
 
+    - name: Print workflow inputs
+      run: |
+        echo "::add-mask::${{ inputs.rbe-jwt }}"
+        echo "gn-build-type:     ${{ inputs.gn-build-type || 'testing' }}"
+        echo "version:           ${{ inputs.version || '(from git tag)' }}"
+        echo "threema-patch:     ${{ inputs.threema-patch }}"
+        echo "rbe-jwt:           ${{ inputs.rbe-jwt != '' && '(provided)' || '(not set — local build)' }}"
+        echo "clean-build:       ${{ inputs.clean-build }}"
+        echo "build-linux-x64:   ${{ inputs.build-linux-x64 }}"
+        echo "build-linux-arm64: ${{ inputs.build-linux-arm64 }}"
+        echo "build-macos-arm64: ${{ inputs.build-macos-arm64 }}"
+        echo "build-macos-x64:   ${{ inputs.build-macos-x64 }}"
+        echo "build-windows:     ${{ inputs.build-windows }}"
+        echo "build-node-headers:${{ inputs.build-node-headers }}"
+
     - name: Clean build output
+      if: ${{ inputs.clean-build }}
       run: |
         # ──────────────────────────────────────────────────────────────────────
         # TEMPORARY: Remove this step once arm64 and x64 have separate
@@ -380,12 +459,23 @@ jobs:
           -s "src/tools/clang/dsymutil/bin/dsymutil.${HOST_ARCH}.sha1" \
           -o src/tools/clang/dsymutil/bin/dsymutil
 
+    - name: Configure build mode
+      run: |
+        if [ -n "${{ inputs.rbe-jwt }}" ]; then
+          TOKEN="${{ inputs.rbe-jwt }}"
+          echo "::add-mask::${TOKEN}"
+          echo "REMOTE_BUILD=siso" >> $GITHUB_ENV
+          echo "ELECTRON_RBE_JWT=${TOKEN}" >> $GITHUB_ENV
+        else
+          echo "REMOTE_BUILD=none" >> $GITHUB_ENV
+        fi
+
     - name: Init build configuration
       run: |
         e init -f --root=$(pwd) --out=Default \
           "$GN_BUILD_TYPE" --import "$GN_BUILD_TYPE" \
           --target-cpu "$TARGET_ARCH" \
-          --remote-build siso
+          --remote-build "$REMOTE_BUILD"
 
     - name: Override Electron version in GN args
       run: |
@@ -459,7 +549,23 @@ jobs:
         path: src/electron
         fetch-depth: 0
 
+    - name: Print workflow inputs
+      run: |
+        echo "::add-mask::${{ inputs.rbe-jwt }}"
+        echo "gn-build-type:     ${{ inputs.gn-build-type || 'testing' }}"
+        echo "version:           ${{ inputs.version || '(from git tag)' }}"
+        echo "threema-patch:     ${{ inputs.threema-patch }}"
+        echo "rbe-jwt:           ${{ inputs.rbe-jwt != '' && '(provided)' || '(not set — local build)' }}"
+        echo "clean-build:       ${{ inputs.clean-build }}"
+        echo "build-linux-x64:   ${{ inputs.build-linux-x64 }}"
+        echo "build-linux-arm64: ${{ inputs.build-linux-arm64 }}"
+        echo "build-macos-arm64: ${{ inputs.build-macos-arm64 }}"
+        echo "build-macos-x64:   ${{ inputs.build-macos-x64 }}"
+        echo "build-windows:     ${{ inputs.build-windows }}"
+        echo "build-node-headers:${{ inputs.build-node-headers }}"
+
     - name: Clean build output
+      if: ${{ inputs.clean-build }}
       run: |
         # ──────────────────────────────────────────────────────────────────────
         # TEMPORARY: Remove this step once arm64 and x64 have separate
@@ -513,12 +619,23 @@ jobs:
       env:
         TARGET_ARCH: x64
 
+    - name: Configure build mode
+      run: |
+        if [ -n "${{ inputs.rbe-jwt }}" ]; then
+          TOKEN="${{ inputs.rbe-jwt }}"
+          echo "::add-mask::${TOKEN}"
+          echo "REMOTE_BUILD=siso" >> $GITHUB_ENV
+          echo "ELECTRON_RBE_JWT=${TOKEN}" >> $GITHUB_ENV
+        else
+          echo "REMOTE_BUILD=none" >> $GITHUB_ENV
+        fi
+
     - name: Init build configuration
       run: |
         e init -f --root=$(pwd) --out=Default \
           "$GN_BUILD_TYPE" --import "$GN_BUILD_TYPE" \
           --target-cpu "$TARGET_ARCH" \
-          --remote-build siso
+          --remote-build "$REMOTE_BUILD"
 
     - name: Override Electron version in GN args
       run: |
@@ -571,7 +688,7 @@ jobs:
 # ──────────────────────────────────────────────────────────────────────────────
   build-siso-windows:
     name: 'Build Siso (Windows)'
-    if: ${{ github.repository == 'threema-ch/electron' && github.event_name == 'workflow_dispatch' && inputs.build-windows }}
+    if: ${{ github.repository == 'threema-ch/electron' && github.event_name == 'workflow_dispatch' && inputs.build-windows && inputs.rbe-jwt != '' }}
     uses: ./.github/workflows/pipeline-segment-build-siso-windows.yml
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -580,7 +697,12 @@ jobs:
   windows-x64:
     name: 'Windows / x64'
     # workflow_dispatch only — no Windows runner on push until runner is available
-    if: ${{ github.repository == 'threema-ch/electron' && github.event_name == 'workflow_dispatch' && inputs.build-windows }}
+    if: |
+      always() &&
+      github.repository == 'threema-ch/electron' &&
+      github.event_name == 'workflow_dispatch' &&
+      inputs.build-windows &&
+      (needs.build-siso-windows.result == 'success' || needs.build-siso-windows.result == 'skipped')
     needs: [build-siso-windows]
     runs-on: [self-hosted, Windows, x64]
     timeout-minutes: 1440  # 12 hours — first build takes ~10h locally without RBE
@@ -610,7 +732,23 @@ jobs:
         path: src/electron
         fetch-depth: 0
 
+    - name: Print workflow inputs
+      run: |
+        echo "::add-mask::${{ inputs.rbe-jwt }}"
+        echo "gn-build-type:     ${{ inputs.gn-build-type || 'testing' }}"
+        echo "version:           ${{ inputs.version || '(from git tag)' }}"
+        echo "threema-patch:     ${{ inputs.threema-patch }}"
+        echo "rbe-jwt:           ${{ inputs.rbe-jwt != '' && '(provided)' || '(not set — local build)' }}"
+        echo "clean-build:       ${{ inputs.clean-build }}"
+        echo "build-linux-x64:   ${{ inputs.build-linux-x64 }}"
+        echo "build-linux-arm64: ${{ inputs.build-linux-arm64 }}"
+        echo "build-macos-arm64: ${{ inputs.build-macos-arm64 }}"
+        echo "build-macos-x64:   ${{ inputs.build-macos-x64 }}"
+        echo "build-windows:     ${{ inputs.build-windows }}"
+        echo "build-node-headers:${{ inputs.build-node-headers }}"
+
     - name: Clean build output
+      if: ${{ inputs.clean-build }}
       run: |
         # Remove stale out/Default so that e init's gn gen runs on a clean
         # slate. Without this, a changed args.gn would make ninja trigger
@@ -640,12 +778,23 @@ jobs:
       with:
         target-platform: win
 
+    - name: Configure build mode
+      run: |
+        if [ -n "${{ inputs.rbe-jwt }}" ]; then
+          TOKEN="${{ inputs.rbe-jwt }}"
+          echo "::add-mask::${TOKEN}"
+          echo "REMOTE_BUILD=siso" >> $GITHUB_ENV
+          echo "ELECTRON_RBE_JWT=${TOKEN}" >> $GITHUB_ENV
+        else
+          echo "REMOTE_BUILD=none" >> $GITHUB_ENV
+        fi
+
     - name: Init build configuration
       run: |
         e init -f --root=$(pwd) --out=Default \
           "$GN_BUILD_TYPE" --import "$GN_BUILD_TYPE" \
           --target-cpu "$TARGET_ARCH" \
-          --remote-build siso
+          --remote-build "$REMOTE_BUILD"
 
     - name: Override Electron version in GN args
       run: |
@@ -672,12 +821,14 @@ jobs:
       uses: ./src/electron/.github/actions/install-dependencies
 
     - name: Download custom siso binary (Windows)
+      if: ${{ inputs.rbe-jwt != '' }}
       uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
       with:
         name: siso-windows-amd64
         path: ${{ runner.temp }}/siso
 
     - name: Set SISO_PATH (Windows)
+      if: ${{ inputs.rbe-jwt != '' }}
       run: |
         SISO_BIN="${RUNNER_TEMP}/siso/siso.exe"
         if [ ! -f "$SISO_BIN" ]; then
@@ -762,7 +913,23 @@ jobs:
         path: src/electron
         fetch-depth: 0
 
+    - name: Print workflow inputs
+      run: |
+        echo "::add-mask::${{ inputs.rbe-jwt }}"
+        echo "gn-build-type:     ${{ inputs.gn-build-type || 'testing' }}"
+        echo "version:           ${{ inputs.version || '(from git tag)' }}"
+        echo "threema-patch:     ${{ inputs.threema-patch }}"
+        echo "rbe-jwt:           ${{ inputs.rbe-jwt != '' && '(provided)' || '(not set — local build)' }}"
+        echo "clean-build:       ${{ inputs.clean-build }}"
+        echo "build-linux-x64:   ${{ inputs.build-linux-x64 }}"
+        echo "build-linux-arm64: ${{ inputs.build-linux-arm64 }}"
+        echo "build-macos-arm64: ${{ inputs.build-macos-arm64 }}"
+        echo "build-macos-x64:   ${{ inputs.build-macos-x64 }}"
+        echo "build-windows:     ${{ inputs.build-windows }}"
+        echo "build-node-headers:${{ inputs.build-node-headers }}"
+
     - name: Clean build output
+      if: ${{ inputs.clean-build }}
       # The runner workspace is persistent across jobs; remove any stale
       # out/Default from a previous run so e init starts from a clean slate.
       run: rm -rf src/out/Default 2>/dev/null || true
@@ -785,12 +952,23 @@ jobs:
         ELECTRON_USE_THREE_WAY_MERGE_FOR_PATCHES=1 \
           e d gclient sync --with_branch_heads --with_tags
 
+    - name: Configure build mode
+      run: |
+        if [ -n "${{ inputs.rbe-jwt }}" ]; then
+          TOKEN="${{ inputs.rbe-jwt }}"
+          echo "::add-mask::${TOKEN}"
+          echo "REMOTE_BUILD=siso" >> $GITHUB_ENV
+          echo "ELECTRON_RBE_JWT=${TOKEN}" >> $GITHUB_ENV
+        else
+          echo "REMOTE_BUILD=none" >> $GITHUB_ENV
+        fi
+
     - name: Init build configuration
       run: |
         e init -f --root=$(pwd) --out=Default \
           "$GN_BUILD_TYPE" --import "$GN_BUILD_TYPE" \
           --target-cpu "$TARGET_ARCH" \
-          --remote-build siso
+          --remote-build "$REMOTE_BUILD"
 
     - name: Override Electron version in GN args
       run: |
