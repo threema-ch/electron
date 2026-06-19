@@ -62,9 +62,8 @@ on:
         required: false
       version:
         type: string
-        description: 'Base Electron version (e.g. 40.10.0). Used for the release tag and artifact names. Defaults to the nearest git tag.'
-        default: ''
-        required: false
+        description: 'Base Electron version (e.g. 40.10.0). Used for the release tag, artifact names, and the version embedded in the binary.'
+        required: true
       threema-patch:
         type: string
         description: 'Threema patch-set version (e.g. 1). Increment when Threema patches change; reset to 1 when the base Electron version bumps. Combined with version to form the release tag v{version}-threema.{threema-patch}.'
@@ -177,13 +176,7 @@ jobs:
 
     - name: Override Electron version in GN args
       run: |
-        if [ -n "${{ inputs.version }}" ]; then
-          BASE_VERSION="${{ inputs.version }}"
-        else
-          BASE_VERSION=$(git -C src/electron describe --tags --abbrev=0 2>/dev/null \
-            | sed 's/^v//; s/-.*//')
-        fi
-        echo "override_electron_version = \"${BASE_VERSION}\"" >> src/out/Default/args.gn
+        echo "override_electron_version = \"${{ inputs.version }}\"" >> src/out/Default/args.gn
 
     - name: Run Electron-only hooks
       run: |
@@ -307,13 +300,7 @@ jobs:
 
     - name: Override Electron version in GN args
       run: |
-        if [ -n "${{ inputs.version }}" ]; then
-          BASE_VERSION="${{ inputs.version }}"
-        else
-          BASE_VERSION=$(git -C src/electron describe --tags --abbrev=0 2>/dev/null \
-            | sed 's/^v//; s/-.*//')
-        fi
-        echo "override_electron_version = \"${BASE_VERSION}\"" >> src/out/Default/args.gn
+        echo "override_electron_version = \"${{ inputs.version }}\"" >> src/out/Default/args.gn
 
     - name: Run Electron-only hooks
       run: |
@@ -479,13 +466,7 @@ jobs:
 
     - name: Override Electron version in GN args
       run: |
-        if [ -n "${{ inputs.version }}" ]; then
-          BASE_VERSION="${{ inputs.version }}"
-        else
-          BASE_VERSION=$(git -C src/electron describe --tags --abbrev=0 2>/dev/null \
-            | sed 's/^v//; s/-.*//')
-        fi
-        echo "override_electron_version = \"${BASE_VERSION}\"" >> src/out/Default/args.gn
+        echo "override_electron_version = \"${{ inputs.version }}\"" >> src/out/Default/args.gn
 
     - name: Run Electron-only hooks
       run: |
@@ -639,13 +620,7 @@ jobs:
 
     - name: Override Electron version in GN args
       run: |
-        if [ -n "${{ inputs.version }}" ]; then
-          BASE_VERSION="${{ inputs.version }}"
-        else
-          BASE_VERSION=$(git -C src/electron describe --tags --abbrev=0 2>/dev/null \
-            | sed 's/^v//; s/-.*//')
-        fi
-        echo "override_electron_version = \"${BASE_VERSION}\"" >> src/out/Default/args.gn
+        echo "override_electron_version = \"${{ inputs.version }}\"" >> src/out/Default/args.gn
 
     - name: Run Electron-only hooks
       run: |
@@ -798,13 +773,7 @@ jobs:
 
     - name: Override Electron version in GN args
       run: |
-        if [ -n "${{ inputs.version }}" ]; then
-          BASE_VERSION="${{ inputs.version }}"
-        else
-          BASE_VERSION=$(git -C src/electron describe --tags --abbrev=0 2>/dev/null \
-            | sed 's/^v//; s/-.*//')
-        fi
-        echo "override_electron_version = \"${BASE_VERSION}\"" >> src/out/Default/args.gn
+        echo "override_electron_version = \"${{ inputs.version }}\"" >> src/out/Default/args.gn
 
     - name: Run Electron-only hooks
       run: |
@@ -972,13 +941,7 @@ jobs:
 
     - name: Override Electron version in GN args
       run: |
-        if [ -n "${{ inputs.version }}" ]; then
-          BASE_VERSION="${{ inputs.version }}"
-        else
-          BASE_VERSION=$(git -C src/electron describe --tags --abbrev=0 2>/dev/null \
-            | sed 's/^v//; s/-.*//')
-        fi
-        echo "override_electron_version = \"${BASE_VERSION}\"" >> src/out/Default/args.gn
+        echo "override_electron_version = \"${{ inputs.version }}\"" >> src/out/Default/args.gn
 
     - name: Run Electron-only hooks
       run: |
@@ -1031,12 +994,7 @@ jobs:
 
     - name: Get Electron version
       id: version
-      run: |
-        if [ -n "${{ inputs.version }}" ]; then
-          echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
-        else
-          echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
-        fi
+      run: echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
 
     - name: Download Linux x64 artifacts
       if: needs.linux-x64.result == 'success'
