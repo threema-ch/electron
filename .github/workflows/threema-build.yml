@@ -62,8 +62,13 @@ on:
         required: false
       version:
         type: string
-        description: 'Release version (e.g. 40.10.0). Overrides package.json. Used for the release tag v{version}-threema and artifact names.'
+        description: 'Base Electron version (e.g. 40.10.0). Used for the release tag and artifact names. Defaults to the nearest git tag.'
         default: ''
+        required: false
+      threema-patch:
+        type: string
+        description: 'Threema patch-set version (e.g. 1). Increment when Threema patches change; reset to 1 when the base Electron version bumps. Combined with version to form the release tag v{version}-threema.{threema-patch}.'
+        default: '1'
         required: false
 
 defaults:
@@ -133,6 +138,16 @@ jobs:
           "$GN_BUILD_TYPE" --import "$GN_BUILD_TYPE" \
           --target-cpu "$TARGET_ARCH" \
           --remote-build siso
+
+    - name: Override Electron version in GN args
+      run: |
+        if [ -n "${{ inputs.version }}" ]; then
+          BASE_VERSION="${{ inputs.version }}"
+        else
+          BASE_VERSION=$(git -C src/electron describe --tags --abbrev=0 2>/dev/null \
+            | sed 's/^v//; s/-.*//')
+        fi
+        echo "override_electron_version = \"${BASE_VERSION}\"" >> src/out/Default/args.gn
 
     - name: Run Electron-only hooks
       run: |
@@ -226,6 +241,16 @@ jobs:
           "$GN_BUILD_TYPE" --import "$GN_BUILD_TYPE" \
           --target-cpu "$TARGET_ARCH" \
           --remote-build siso
+
+    - name: Override Electron version in GN args
+      run: |
+        if [ -n "${{ inputs.version }}" ]; then
+          BASE_VERSION="${{ inputs.version }}"
+        else
+          BASE_VERSION=$(git -C src/electron describe --tags --abbrev=0 2>/dev/null \
+            | sed 's/^v//; s/-.*//')
+        fi
+        echo "override_electron_version = \"${BASE_VERSION}\"" >> src/out/Default/args.gn
 
     - name: Run Electron-only hooks
       run: |
@@ -362,6 +387,16 @@ jobs:
           --target-cpu "$TARGET_ARCH" \
           --remote-build siso
 
+    - name: Override Electron version in GN args
+      run: |
+        if [ -n "${{ inputs.version }}" ]; then
+          BASE_VERSION="${{ inputs.version }}"
+        else
+          BASE_VERSION=$(git -C src/electron describe --tags --abbrev=0 2>/dev/null \
+            | sed 's/^v//; s/-.*//')
+        fi
+        echo "override_electron_version = \"${BASE_VERSION}\"" >> src/out/Default/args.gn
+
     - name: Run Electron-only hooks
       run: |
         e d gclient runhooks --spec="solutions=[{'name':'src/electron','url':None,'deps_file':'DEPS','custom_vars':{'process_deps':False},'managed':False}]"
@@ -485,6 +520,16 @@ jobs:
           --target-cpu "$TARGET_ARCH" \
           --remote-build siso
 
+    - name: Override Electron version in GN args
+      run: |
+        if [ -n "${{ inputs.version }}" ]; then
+          BASE_VERSION="${{ inputs.version }}"
+        else
+          BASE_VERSION=$(git -C src/electron describe --tags --abbrev=0 2>/dev/null \
+            | sed 's/^v//; s/-.*//')
+        fi
+        echo "override_electron_version = \"${BASE_VERSION}\"" >> src/out/Default/args.gn
+
     - name: Run Electron-only hooks
       run: |
         e d gclient runhooks --spec="solutions=[{'name':'src/electron','url':None,'deps_file':'DEPS','custom_vars':{'process_deps':False},'managed':False}]"
@@ -601,6 +646,16 @@ jobs:
           "$GN_BUILD_TYPE" --import "$GN_BUILD_TYPE" \
           --target-cpu "$TARGET_ARCH" \
           --remote-build siso
+
+    - name: Override Electron version in GN args
+      run: |
+        if [ -n "${{ inputs.version }}" ]; then
+          BASE_VERSION="${{ inputs.version }}"
+        else
+          BASE_VERSION=$(git -C src/electron describe --tags --abbrev=0 2>/dev/null \
+            | sed 's/^v//; s/-.*//')
+        fi
+        echo "override_electron_version = \"${BASE_VERSION}\"" >> src/out/Default/args.gn
 
     - name: Run Electron-only hooks
       run: |
@@ -737,6 +792,16 @@ jobs:
           --target-cpu "$TARGET_ARCH" \
           --remote-build siso
 
+    - name: Override Electron version in GN args
+      run: |
+        if [ -n "${{ inputs.version }}" ]; then
+          BASE_VERSION="${{ inputs.version }}"
+        else
+          BASE_VERSION=$(git -C src/electron describe --tags --abbrev=0 2>/dev/null \
+            | sed 's/^v//; s/-.*//')
+        fi
+        echo "override_electron_version = \"${BASE_VERSION}\"" >> src/out/Default/args.gn
+
     - name: Run Electron-only hooks
       run: |
         e d gclient runhooks --spec="solutions=[{'name':'src/electron','url':None,'deps_file':'DEPS','custom_vars':{'process_deps':False},'managed':False}]"
@@ -842,7 +907,8 @@ jobs:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         VERSION="${{ steps.version.outputs.version }}"
-        TAG="v${VERSION}-threema"
+        THREEMA_PATCH="${{ inputs.threema-patch }}"
+        TAG="v${VERSION}-threema.${THREEMA_PATCH}"
         mkdir -p release-assets
 
         rename() {
@@ -900,14 +966,15 @@ jobs:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         VERSION="${{ steps.version.outputs.version }}"
-        TAG="v${VERSION}-threema"
-        TITLE="Electron v${VERSION} (Threema)"
+        THREEMA_PATCH="${{ inputs.threema-patch }}"
+        TAG="v${VERSION}-threema.${THREEMA_PATCH}"
+        TITLE="Electron v${VERSION} (Threema patch ${THREEMA_PATCH})"
         NOTES="Electron build with Threema WebRTC patches.
 
         **Download with \`@electron/get\`:**
         \`\`\`
         ELECTRON_MIRROR=https://github.com/threema-ch/electron/releases/download/
-        ELECTRON_CUSTOM_DIR=v{{ version }}-threema
+        ELECTRON_CUSTOM_DIR=v${VERSION}-threema.${THREEMA_PATCH}
         \`\`\`"
 
         if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" &>/dev/null; then
