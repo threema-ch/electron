@@ -784,7 +784,7 @@ jobs:
 
     - name: Set GN_EXTRA_ARGS for Windows
       run: |
-        echo "GN_EXTRA_ARGS=win_abs_link_wrapper=\"//electron/build/win/abs_link_wrapper.py\"" >> $GITHUB_ENV
+        echo "GN_EXTRA_ARGS=${GN_EXTRA_ARGS} win_abs_link_wrapper=\"//electron/build/win/abs_link_wrapper.py\"" >> $GITHUB_ENV
 
     - name: Install yarn dependencies
       uses: ./src/electron/.github/actions/install-dependencies
