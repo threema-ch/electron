@@ -56,9 +56,9 @@ on:
         type: choice
         description: 'GN build type: testing (faster, larger binary) or release (optimized)'
         options:
-          - testing
           - release
-        default: testing
+          - testing
+        default: release
         required: false
       version:
         type: string
@@ -106,7 +106,7 @@ jobs:
       TARGET_ARCH: x64
       TARGET_PLATFORM: linux
       GCLIENT_EXTRA_ARGS: '--custom-var=checkout_arm=True --custom-var=checkout_arm64=True'
-      GN_BUILD_TYPE: ${{ inputs.gn-build-type || 'testing' }}
+      GN_BUILD_TYPE: ${{ inputs.gn-build-type || 'release' }}
 
       CHROMIUM_GIT_COOKIE: ${{ secrets.CHROMIUM_GIT_COOKIE }}
 
@@ -120,7 +120,7 @@ jobs:
     - name: Print workflow inputs
       run: |
         echo "::add-mask::${{ inputs.rbe-jwt }}"
-        echo "gn-build-type:     ${{ inputs.gn-build-type || 'testing' }}"
+        echo "gn-build-type:     ${{ inputs.gn-build-type || 'release' }}"
         echo "version:           ${{ inputs.version || '(from git tag)' }}"
         echo "threema-patch:     ${{ inputs.threema-patch }}"
         echo "rbe-jwt:           ${{ inputs.rbe-jwt != '' && '(provided)' || '(not set — local build)' }}"
@@ -230,7 +230,7 @@ jobs:
       TARGET_PLATFORM: linux
       # checkout_arm64=True pulls the arm64 sysroot needed for cross-compilation
       GCLIENT_EXTRA_ARGS: '--custom-var=checkout_arm=True --custom-var=checkout_arm64=True'
-      GN_BUILD_TYPE: ${{ inputs.gn-build-type || 'testing' }}
+      GN_BUILD_TYPE: ${{ inputs.gn-build-type || 'release' }}
 
       CHROMIUM_GIT_COOKIE: ${{ secrets.CHROMIUM_GIT_COOKIE }}
 
@@ -244,7 +244,7 @@ jobs:
     - name: Print workflow inputs
       run: |
         echo "::add-mask::${{ inputs.rbe-jwt }}"
-        echo "gn-build-type:     ${{ inputs.gn-build-type || 'testing' }}"
+        echo "gn-build-type:     ${{ inputs.gn-build-type || 'release' }}"
         echo "version:           ${{ inputs.version || '(from git tag)' }}"
         echo "threema-patch:     ${{ inputs.threema-patch }}"
         echo "rbe-jwt:           ${{ inputs.rbe-jwt != '' && '(provided)' || '(not set — local build)' }}"
@@ -351,7 +351,7 @@ jobs:
       TARGET_ARCH: arm64
       TARGET_PLATFORM: macos
       GCLIENT_EXTRA_ARGS: '--custom-var=checkout_mac=True --custom-var=host_os=mac'
-      GN_BUILD_TYPE: ${{ inputs.gn-build-type || 'testing' }}
+      GN_BUILD_TYPE: ${{ inputs.gn-build-type || 'release' }}
       ELECTRON_DEPOT_TOOLS_DISABLE_LOG: "1"
       CHROMIUM_GIT_COOKIE: ${{ secrets.CHROMIUM_GIT_COOKIE }}
       # Required for Metal shader compilation on macOS
@@ -367,7 +367,7 @@ jobs:
     - name: Print workflow inputs
       run: |
         echo "::add-mask::${{ inputs.rbe-jwt }}"
-        echo "gn-build-type:     ${{ inputs.gn-build-type || 'testing' }}"
+        echo "gn-build-type:     ${{ inputs.gn-build-type || 'release' }}"
         echo "version:           ${{ inputs.version || '(from git tag)' }}"
         echo "threema-patch:     ${{ inputs.threema-patch }}"
         echo "rbe-jwt:           ${{ inputs.rbe-jwt != '' && '(provided)' || '(not set — local build)' }}"
@@ -517,7 +517,7 @@ jobs:
       TARGET_ARCH: x64
       TARGET_PLATFORM: macos
       GCLIENT_EXTRA_ARGS: '--custom-var=checkout_mac=True --custom-var=host_os=mac'
-      GN_BUILD_TYPE: ${{ inputs.gn-build-type || 'testing' }}
+      GN_BUILD_TYPE: ${{ inputs.gn-build-type || 'release' }}
       ELECTRON_DEPOT_TOOLS_DISABLE_LOG: "1"
       CHROMIUM_GIT_COOKIE: ${{ secrets.CHROMIUM_GIT_COOKIE }}
       # Required for Metal shader compilation on macOS
@@ -533,7 +533,7 @@ jobs:
     - name: Print workflow inputs
       run: |
         echo "::add-mask::${{ inputs.rbe-jwt }}"
-        echo "gn-build-type:     ${{ inputs.gn-build-type || 'testing' }}"
+        echo "gn-build-type:     ${{ inputs.gn-build-type || 'release' }}"
         echo "version:           ${{ inputs.version || '(from git tag)' }}"
         echo "threema-patch:     ${{ inputs.threema-patch }}"
         echo "rbe-jwt:           ${{ inputs.rbe-jwt != '' && '(provided)' || '(not set — local build)' }}"
@@ -685,7 +685,7 @@ jobs:
       TARGET_ARCH: x64
       TARGET_PLATFORM: win
       GCLIENT_EXTRA_ARGS: '--custom-var=checkout_win=True'
-      GN_BUILD_TYPE: ${{ inputs.gn-build-type || 'testing' }}
+      GN_BUILD_TYPE: ${{ inputs.gn-build-type || 'release' }}
 
       CHROMIUM_GIT_COOKIE_WINDOWS_STRING: ${{ secrets.CHROMIUM_GIT_COOKIE_WINDOWS_STRING }}
       # Suppress "Running ..." prefix from e d so command output isn't polluted
@@ -710,7 +710,7 @@ jobs:
     - name: Print workflow inputs
       run: |
         echo "::add-mask::${{ inputs.rbe-jwt }}"
-        echo "gn-build-type:     ${{ inputs.gn-build-type || 'testing' }}"
+        echo "gn-build-type:     ${{ inputs.gn-build-type || 'release' }}"
         echo "version:           ${{ inputs.version || '(from git tag)' }}"
         echo "threema-patch:     ${{ inputs.threema-patch }}"
         echo "rbe-jwt:           ${{ inputs.rbe-jwt != '' && '(provided)' || '(not set — local build)' }}"
@@ -872,7 +872,7 @@ jobs:
       TARGET_ARCH: x64
       TARGET_PLATFORM: linux
       GCLIENT_EXTRA_ARGS: '--custom-var=checkout_arm=True --custom-var=checkout_arm64=True'
-      GN_BUILD_TYPE: ${{ inputs.gn-build-type || 'testing' }}
+      GN_BUILD_TYPE: ${{ inputs.gn-build-type || 'release' }}
       CHROMIUM_GIT_COOKIE: ${{ secrets.CHROMIUM_GIT_COOKIE }}
 
     steps:
@@ -885,7 +885,7 @@ jobs:
     - name: Print workflow inputs
       run: |
         echo "::add-mask::${{ inputs.rbe-jwt }}"
-        echo "gn-build-type:     ${{ inputs.gn-build-type || 'testing' }}"
+        echo "gn-build-type:     ${{ inputs.gn-build-type || 'release' }}"
         echo "version:           ${{ inputs.version || '(from git tag)' }}"
         echo "threema-patch:     ${{ inputs.threema-patch }}"
         echo "rbe-jwt:           ${{ inputs.rbe-jwt != '' && '(provided)' || '(not set — local build)' }}"
