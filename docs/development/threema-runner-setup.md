@@ -19,6 +19,14 @@ platforms to build each time; nothing runs automatically on push.
 | macOS x64 | `self-hosted, macOS, X64` | 8+ cores (Intel) | 32 GB | 64 GB | 400 GB SSD |
 | Windows x64 | `self-hosted, Windows, x64` | 32 cores | 64 GB | 128 GB | 200 GB boot + 600 GB data SSD |
 
+## OS requirements
+
+| Runner | Minimum OS | Notes |
+|---|---|---|
+| Linux | Ubuntu 22.04 – 24.04 LTS | Build runs in Docker; host OS does not affect the binary |
+| macOS | macOS 26 | Xcode 26 required; binary targets macOS 12+ (`mac_deployment_target`) |
+| Windows | Windows Server 2022 | Binary also requires Windows 10+ |
+
 ---
 
 ## GitHub runner registration (all platforms)
@@ -106,7 +114,7 @@ sudo -u github-runner docker pull \
 macOS builds run natively without Docker. The `fix-sync` action installs
 platform-specific toolchain binaries (clang, gn, ninja, siso) after `gclient sync`.
 
-**Requirements:** macOS 12 or later, Xcode (latest), Node.js 22.12.0+, Python 3.9+.
+**Requirements:** macOS 26 or later, Xcode 26.x, Node.js 22.12.0+, Python 3.9+.
 
 ### 1 — Install Xcode
 
@@ -219,6 +227,7 @@ The build runs natively on Windows. `depot_tools` downloads the MSVC toolchain
 for the Chromium/Electron build, but Visual Studio Build Tools must also be
 installed separately so that node-gyp can compile Electron's native test
 fixtures during `yarn install`.
+
 
 ### 1 — System configuration
 
